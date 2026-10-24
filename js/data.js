@@ -44,7 +44,7 @@ const BUILDINGS = [
   { id: 'wsq',  name: 'Washington Square Hall',    abbr: 'WSQ', lat: 37.334277, lng: -121.884026, x: 14, y: 58, w: 12, h: 10, kw: ['washington square', 'wsq'] },
   { id: 'wsh',  name: 'Washburn Hall',             abbr: 'WSH', lat: 37.333733, lng: -121.879434, x: 80, y: 52, w: 12, h: 10, kw: ['washburn', 'wsh'] },
   { id: 'cva',  name: 'Campus Village A',          abbr: 'CVA', lat: 37.335462, lng: -121.878263, x: 72, y: 72, w: 20, h: 18, kw: ['campus village a', 'cva', 'campus village'] },
-  { id: 'hgh',  name: 'Hugh Gillis Hall',           abbr: 'HGH', lat: 37.336064, lng: -121.884561, x: 22, y: 20, w: 10, h: 8, kw: ['hugh gillis', 'hgh'] },
+  { id: 'hgh',  name: 'Hugh Gillis Hall',           abbr: 'HGH', lat: 37.336058, lng: -121.884481, x: 22, y: 20, w: 10, h: 8, kw: ['hugh gillis', 'hgh'] },
   { id: 'yuh',  name: 'Yoshihiro Uchida Hall',      abbr: 'YUH', lat: 37.333807, lng: -121.883971, x: 10, y: 62, w: 12, h: 8, kw: ['uchida', 'yuh'] },
   { id: 'bbc',  name: 'Boccardo Business Complex',  abbr: 'BBC', lat: 37.336583, lng: -121.878771, x: 76, y: 30, w: 14, h: 10, kw: ['boccardo', 'bbc', 'business'] },
   { id: 'its',  name: 'Interdisciplinary Sciences', abbr: 'ISB', lat: 37.333093, lng: -121.882841, x: 24, y: 64, w: 10, h: 8, kw: ['interdisciplinary', 'isb'] },
