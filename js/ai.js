@@ -27,6 +27,7 @@ Given the report (text, and a photo if attached), decide — the reporter never 
 - severity: "low" | "medium" | "high" | "critical" (critical = immediate danger to life).
 - emergency: true if someone may be hurt or in danger right now (fire, weapon, injury, assault).
 - genuine: false if this looks like a joke, test, spam, or has no actionable content.
+- faultVisible: true only if the defect itself is visible in the photo or stated in the text (a crack, a leak, a dark light, a missing cover, an error screen, a stuck door). false if you only recognise the object (an outlet, a projector, a fountain that looks normal) — never assume something is broken just because it was photographed.
 - description: one plain sentence describing what the photo shows and the problem (if no photo, summarize the text). Mention hazards for a blind user, e.g. a crack across a ramp.
 - confidence: 0 to 1.
 Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`;
@@ -48,16 +49,21 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
     });
   }
 
-  async function call(model, parts, ctrl, noThink = false) {
+  const ATTEMPT_MS = 6000;  // a stuck connection is abandoned after 6 s and retried fresh
+  async function call(model, parts, ctrl, noThink = false, retried = false) {
+    const own = new AbortController();
+    const onAbort = () => own.abort();
+    ctrl.signal.addEventListener('abort', onAbort);
+    const t = setTimeout(() => own.abort(), ATTEMPT_MS);
     try {
       const gen = { temperature: 0.1, responseMimeType: 'application/json', maxOutputTokens: 300 };
       if (!noThink) gen.thinkingConfig = { thinkingBudget: 0 };   // no "thinking" pass: this is a classification, speed matters more
       const body = { contents: [{ role: 'user', parts }], generationConfig: gen };
       const p = proxy();
       const res = p
-        ? await fetch(p, { method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model, body }) })
+        ? await fetch(p, { method: 'POST', signal: own.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model, body }) })
         : await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-            method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key() }, body: JSON.stringify(body),
+            method: 'POST', signal: own.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key() }, body: JSON.stringify(body),
           });
       if (res.status === 400 && !noThink) return call(model, parts, ctrl, true);   // model rejected thinkingConfig → plain retry
       if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 200));
@@ -65,7 +71,10 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
       const txt = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
       const json = txt.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
       return JSON.parse(json);
-    } catch (e) { if (e.name !== 'AbortError') console.warn('AI triage failed on', model, e.message || e); throw e; }
+    } catch (e) {
+      if (e.name === 'AbortError' && !ctrl.signal.aborted && !retried) { clearTimeout(t); ctrl.signal.removeEventListener('abort', onAbort); return call(model, parts, ctrl, noThink, true); }
+      if (e.name !== 'AbortError') console.warn('AI triage failed on', model, e.message || e); throw e;
+    } finally { clearTimeout(t); ctrl.signal.removeEventListener('abort', onAbort); }
   }
 
   // text: string; photo: data URL or null. Returns a normalized decision or null.
@@ -90,6 +99,7 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
         severity: ['low', 'medium', 'high', 'critical'].includes(r.severity) ? r.severity : 'medium',
         emergency: !!r.emergency,
         genuine: r.genuine !== false,
+        faultVisible: r.faultVisible !== false,
         description: typeof r.description === 'string' ? r.description.slice(0, 300) : '',
         confidence: typeof r.confidence === 'number' ? Math.max(0, Math.min(1, r.confidence)) : 0.5,
         model: r.__model,

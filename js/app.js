@@ -325,6 +325,11 @@ function Review() {
   const sev = d.severity;
   const typeBlock = d.confident || d.ai === 'thinking'
     ? ''
+    : d.objectOnly
+    ? `<div class="stack" style="gap:6px"><div class="row between"><div><div class="eyebrow">Issue type</div><div style="font-size:14px;font-weight:600;color:var(--gold-text)">${esc(t.label)} — what's wrong with it?</div></div><span class="pill gold">Needs detail</span></div>
+       <label class="eyebrow" for="more-detail">What's wrong?</label>
+       <input class="field" id="more-detail" placeholder="e.g. no power / flickers / won't turn on" value="">
+       <span class="muted small">The AI recognised the ${esc(t.label.toLowerCase())} but can't see the fault. One line is enough.</span></div>`
     : `<div class="stack" style="gap:6px"><div class="row between"><div><div class="eyebrow">Issue type</div><div style="font-size:14px;font-weight:600;color:var(--gold-text)">Not sure yet</div></div><span class="pill gold">Needs detail</span></div>
        <label class="eyebrow" for="more-detail">Tell the AI more</label>
        <input class="field" id="more-detail" placeholder="e.g. the elevator door won't close" value="">
@@ -339,7 +344,7 @@ function Review() {
   const cat = CATEGORY[d.category];
   const hintNote = d.hint && d.hint !== d.category ? `<span class="muted small">You said "${esc(CATEGORY[d.hint].short.toLowerCase())}". The AI filed it as ${esc(cat.short.toLowerCase())} instead, based on what you described.</span>` : '';
   const headline = d.category === 'fix'
-    ? (d.confident ? `${t.label} → ${dept.short}${t.coDept ? ' + ' + deptById(t.coDept).short : ''}` : 'Needs one more detail')
+    ? (d.confident ? `${t.label} → ${dept.short}${t.coDept ? ' + ' + deptById(t.coDept).short : ''}` : d.objectOnly ? `${t.label} → ${dept.short} · what's wrong?` : 'Needs one more detail')
     : d.category === 'alert' ? `${d.emergency ? 'Emergency' : t.label !== 'Other' ? t.label + ' hazard' : 'Hazard'} → ${d.emergency ? 'University Police' : 'staff verification'}`
     : `Suggestion → ${deptById(topicFor(d.text || '').dept).short}`;
   const triage = `<div class="card pad stack triage ${cat.tone}" style="gap:6px">
@@ -362,9 +367,9 @@ function Review() {
   ${photo}
   ${d.ai === 'thinking' ? `<div class="row" style="gap:8px;font-size:13px;color:var(--ink-2)"><span class="spin" aria-hidden="true"></span>AI is reading your ${d.photo ? 'photo' : 'report'}…</div>` : ''}
   ${d.seeDesc ? `<div class="card pad stack" style="gap:4px;border-color:var(--blue)"><span class="eyebrow blue">What the AI sees${d.aiModel ? ' · ' + esc(d.aiModel) : ''}</span><p style="font-size:14px">${esc(d.seeDesc)}</p></div>` : ''}
-  ${d.ai === 'off' ? `<span class="muted small">AI service unavailable right now${d.aiError ? ' (' + esc(d.aiError.slice(0, 80)) + ')' : ''}; using the built-in classifier.</span>` : ''}
+  ${d.ai === 'off' ? `<span class="muted small">AI ${d.aiError === 'took too long' ? 'took too long' : 'unavailable'}; using the built-in classifier. <button class="linkbtn" id="ai-retry" type="button">Try again</button></span>` : ''}
   ${d.text ? `<div class="card pad stack" style="gap:4px"><span class="eyebrow">${esc(srcLabel)}</span><p style="font-size:14px">${esc(d.text)}</p></div>` : ''}
-  <div class="row" style="gap:8px"><span style="color:var(--blue)">${ICONS.spark}</span><span style="font-size:13px;font-weight:600;color:var(--blue)">${d.confident ? 'AI identified the issue and department. You can only correct the location.' : 'The AI needs a bit more to identify this.'}</span></div>
+  <div class="row" style="gap:8px"><span style="color:var(--blue)">${ICONS.spark}</span><span style="font-size:13px;font-weight:600;color:var(--blue)">${d.confident ? 'AI identified the issue and department. You can only correct the location.' : d.objectOnly ? `AI sees the ${esc(t.label.toLowerCase())} but not the fault. Say what's wrong.` : 'The AI needs a bit more to identify this.'}</span></div>
   ${triage}
   <div class="card pad stack">
     ${typeBlock}${typeBlock ? '<div class="hr"></div>' : ''}
@@ -391,7 +396,7 @@ function Review() {
   <div class="footer-cta">
     <div class="row" style="gap:8px">
       <button class="btn ghost" style="height:54px;border-radius:16px;padding:0 14px" data-act="readback" aria-label="Read this report back to me">${ICONS.speaker}</button>
-      <button class="btn primary big" id="submit-report" ${(d.building && (d.confident || d.category !== 'fix')) || d.category === 'suggestion' || d.trust === 'review' ? '' : 'disabled'}>${d.trust === 'review' ? 'Submit for review' : d.category === 'alert' ? 'Submit alert' : d.category === 'suggestion' ? 'Post suggestion' : 'Submit work order'} ${ICONS.arrow}</button>
+      <button class="btn primary big" id="submit-report" ${!d.objectOnly && ((d.building && (d.confident || d.category !== 'fix')) || d.category === 'suggestion' || d.trust === 'review') ? '' : 'disabled'}>${d.trust === 'review' ? 'Submit for review' : d.category === 'alert' ? 'Submit alert' : d.category === 'suggestion' ? 'Post suggestion' : 'Submit work order'} ${ICONS.arrow}</button>
     </div>
     <span class="muted" style="text-align:center;font-size:11px">Prototype privacy note: your name is intended to be shared only with the department, never with other students.</span>
   </div>`;
@@ -574,7 +579,9 @@ async function refineWithAI(d) {
   d.ai = 'done'; d.aiModel = r.model; d.aiConfidence = r.confidence;
   d.category = r.category; d.severity = r.severity; d.emergency = r.emergency;
   if (r.type !== 'other' || !d.confident) { d.type = r.type; }
-  d.confident = d.type !== 'other';
+  const described = !!(d.text && d.text.trim().split(/\s+/).length >= 2);
+  d.objectOnly = !described && !r.faultVisible && r.type !== 'other';   // AI sees the thing but not what's wrong with it
+  d.confident = d.type !== 'other' && !d.objectOnly;
   if (!d.building && r.building) { d.building = r.building; d.autoBuilding = true; }
   if (!d.detail && r.detail) d.detail = r.detail;
   if (r.description) d.seeDesc = r.description;
@@ -582,7 +589,7 @@ async function refineWithAI(d) {
   else if (d.trust === 'review' && r.confidence >= 0.7 && d.text && d.text.trim().split(/\s+/).length >= 3) { d.trust = 'ok'; d.reasons = []; }
   render();
   if (d.emergency && !wasEmergency) openEmergency();
-  if (d.photo || speech.on || speech.assist) { const was = speech.on; speech.on = true; speak((r.description ? r.description + ' ' : '') + `Filed as ${typeById(d.type).label}, ${CATEGORY[d.category].label}.`); speech.on = was; }
+  if (d.photo || speech.on || speech.assist) { const was = speech.on; speech.on = true; speak((r.description ? r.description + ' ' : '') + (d.objectOnly ? `I see the ${typeById(d.type).label.toLowerCase()} but not what is wrong. Tell me what is wrong with it.` : `Filed as ${typeById(d.type).label}, ${CATEGORY[d.category].label}.`)); speech.on = was; }
   if (d.severity === 'high' || d.severity === 'critical') buzz([120, 60, 120]);
 }
 
@@ -971,12 +978,16 @@ function bind() {
     startDraft(`${clusterTitle(c)} at ${bldgById(c.building).name}`, 'text', { type: c.type, building: c.building, detail: c.detail, autoBuilding: true, confident: true, severity: typeById(c.type).severity });
   }));
 
+  const retry = $('#ai-retry');
+  if (retry) retry.addEventListener('click', () => { const d = state.draft; d.ai = null; d.aiError = null; render(); refineWithAI(d); });
+
   const more = $('#more-detail');
   if (more) more.addEventListener('change', () => {
     const extra = more.value.trim(); if (!extra) return;
     const d = state.draft; const text = (d.text ? d.text + '. ' : '') + extra;
     const c = classify(text);
-    Object.assign(d, { text, type: c.type, severity: c.severity, confident: c.confident, category: c.category, trust: c.trust, reasons: c.reasons, emergency: c.emergency, building: d.building || c.building, autoBuilding: d.building ? d.autoBuilding : !!c.building, detail: d.detail || c.detail });
+    const keepType = d.objectOnly && c.type === 'other';   // AI already recognised the object; the words just say what's wrong
+    Object.assign(d, { text, type: keepType ? d.type : c.type, severity: c.severity, confident: keepType || c.confident, category: c.category, trust: c.trust, reasons: c.reasons, emergency: c.emergency, building: d.building || c.building, autoBuilding: d.building ? d.autoBuilding : !!c.building, detail: d.detail || c.detail, objectOnly: false });
     render(); speak(c.confident ? `Got it. ${typeById(c.type).label}, ${CATEGORY[c.category].label}.` : 'Still not sure. Add where it is and what is wrong.');
     refineWithAI(d);
   });
