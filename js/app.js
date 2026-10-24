@@ -160,6 +160,7 @@ function render() {
     if (cur) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
   });
   bind();
+  MapKit.mountAll((id) => { if (state.view === 'review' && state.draft) { state.draft.building = id; state.draft.autoBuilding = false; render(); speak(bldgById(id).name + ' selected'); } });
 }
 
 function header(title, sub) {
@@ -213,7 +214,7 @@ function Home() {
     <h2>Open on campus</h2>
     <span class="muted small row" style="gap:4px">${ICONS.map} Live map</span>
   </div>
-  ${campusMap({ pins: clusterPins(), height: 200 })}
+  ${mapHost({ pins: clusterPins(), height: 220 })}
   <div class="stack">${near}</div>`;
 }
 
@@ -252,7 +253,8 @@ function Review() {
     <div class="hr"></div>
     <div class="stack" style="gap:8px">
       <div class="row between"><span class="eyebrow">Location</span>${d.building && d.autoBuilding ? `<span class="pill green">${d.source === 'photo' ? 'From photo GPS' : 'Matched from text'}</span>` : d.building ? '' : '<span class="pill gold">Tap a building</span>'}</div>
-      ${campusMap({ selected: d.building, interactive: true, height: 210 })}
+      ${mapHost({ selected: d.building, pins: clusterPins(), interactive: true, height: 230 })}
+      <span class="muted small">Tap a building on the map, or choose it below.</span>
       <label class="eyebrow" for="bldg" style="margin-top:2px">Building</label>
       <select class="field" id="bldg">${bOpts}</select>
       <label class="eyebrow" for="detail">Where in the building</label>
@@ -378,7 +380,7 @@ function Mine() {
   const cards = rs.map((r, i) => ReportCard(r, i === 0)).join('');
   return `
   <div class="stack" style="gap:3px"><h1>My work orders</h1><span class="muted">Every report becomes a work order with a status. You'll know what happened.</span></div>
-  ${rs.length ? campusMap({ pins: rs.filter((r) => r.building).map((r) => ({ building: r.building, tone: toneFor(r.status), label: `${r.title}, ${REPORT_STATUS[r.status]}` })), height: 170 }) : ''}
+  ${rs.length ? mapHost({ pins: rs.filter((r) => r.building).map((r) => ({ building: r.building, tone: toneFor(r.status), label: `${r.title}, ${REPORT_STATUS[r.status]}` })), height: 190 }) : ''}
   <div class="stats">
     <div class="stat"><b class="num">${counts.all}</b><span>Submitted</span></div>
     <div class="stat"><b class="num" style="color:var(--gold-text)">${counts.prog}</b><span>In progress</span></div>

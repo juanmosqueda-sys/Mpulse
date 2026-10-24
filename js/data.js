@@ -27,21 +27,23 @@ const ISSUE_TYPES = [
   { id: 'other',    label: 'Other',      dept: 'fdo',     severity: 'low',    kw: [] },
 ];
 
-// x,y: position on the schematic campus map (0–100). Campus runs 4th St (west) to 10th St (east), San Fernando (north) to San Salvador (south).
+// lat/lng: approximate building centroids on the SJSU main campus (verify against the official campus map before production).
+// x,y,w,h: position on the schematic fallback map (0–100).
+const CAMPUS_CENTER = { lat: 37.3352, lng: -121.8811 };
 const BUILDINGS = [
-  { id: 'mlk',  name: 'MLK Library',               abbr: 'MLK', x: 10, y: 12, w: 16, h: 14, kw: ['mlk', 'library', 'king library'] },
-  { id: 'dmh',  name: 'Dudley Moorhead Hall',      abbr: 'DMH', x: 10, y: 32, w: 14, h: 10, kw: ['dudley', 'dmh', 'moorhead'] },
-  { id: 'cb2',  name: 'Clark Hall (CB2)',          abbr: 'CL',  x: 12, y: 50, w: 13, h: 12, kw: ['clark', 'cb2', 'cb 2'] },
-  { id: 'dh',   name: 'Duncan Hall',               abbr: 'DH',  x: 12, y: 74, w: 16, h: 12, kw: ['duncan'] },
-  { id: 'sci',  name: 'Science Building',          abbr: 'SCI', x: 30, y: 36, w: 12, h: 10, kw: ['science building', 'science '] },
-  { id: 'sh',   name: 'Sweeney Hall',              abbr: 'SH',  x: 32, y: 58, w: 12, h: 10, kw: ['sweeney'] },
-  { id: 'su',   name: 'Student Union',             abbr: 'SU',  x: 48, y: 28, w: 16, h: 14, kw: ['student union', 'union'] },
-  { id: 'eng',  name: 'Engineering Building',      abbr: 'ENG', x: 68, y: 10, w: 18, h: 16, kw: ['engineering', 'eng building', 'eng '] },
-  { id: 'art',  name: 'Art Building',              abbr: 'ART', x: 52, y: 66, w: 14, h: 12, kw: ['art building', 'art '] },
-  { id: 'spx',  name: 'Spartan Complex (SPX)',     abbr: 'SPX', x: 30, y: 84, w: 22, h: 10, kw: ['spx', 'spartan complex'] },
-  { id: 'wsq',  name: 'Washburn Hall',             abbr: 'WSH', x: 80, y: 52, w: 12, h: 10, kw: ['washburn'] },
-  { id: 'cv',   name: 'Campus Village',            abbr: 'CV',  x: 72, y: 72, w: 20, h: 18, kw: ['campus village', 'cvb', 'cva', 'cvc'] },
-  { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
+  { id: 'mlk',  name: 'MLK Library',               abbr: 'MLK', lat: 37.3353, lng: -121.8853, x: 10, y: 12, w: 16, h: 14, kw: ['mlk', 'library', 'king library'] },
+  { id: 'dmh',  name: 'Dudley Moorhead Hall',      abbr: 'DMH', lat: 37.3343, lng: -121.8839, x: 10, y: 32, w: 14, h: 10, kw: ['dudley', 'dmh', 'moorhead'] },
+  { id: 'cb2',  name: 'Clark Hall (CB2)',          abbr: 'CL',  lat: 37.3358, lng: -121.8840, x: 12, y: 50, w: 13, h: 12, kw: ['clark', 'cb2', 'cb 2'] },
+  { id: 'dh',   name: 'Duncan Hall',               abbr: 'DH',  lat: 37.3331, lng: -121.8821, x: 12, y: 74, w: 16, h: 12, kw: ['duncan'] },
+  { id: 'sci',  name: 'Science Building',          abbr: 'SCI', lat: 37.3336, lng: -121.8829, x: 30, y: 36, w: 12, h: 10, kw: ['science building', 'science '] },
+  { id: 'sh',   name: 'Sweeney Hall',              abbr: 'SH',  lat: 37.3340, lng: -121.8817, x: 32, y: 58, w: 12, h: 10, kw: ['sweeney'] },
+  { id: 'su',   name: 'Student Union',             abbr: 'SU',  lat: 37.3362, lng: -121.8808, x: 48, y: 28, w: 16, h: 14, kw: ['student union', 'union'] },
+  { id: 'eng',  name: 'Engineering Building',      abbr: 'ENG', lat: 37.3374, lng: -121.8812, x: 68, y: 10, w: 18, h: 16, kw: ['engineering', 'eng building', 'eng '] },
+  { id: 'art',  name: 'Art Building',              abbr: 'ART', lat: 37.3360, lng: -121.8787, x: 52, y: 66, w: 14, h: 12, kw: ['art building', 'art '] },
+  { id: 'spx',  name: 'Spartan Complex (SPX)',     abbr: 'SPX', lat: 37.3334, lng: -121.8796, x: 30, y: 84, w: 22, h: 10, kw: ['spx', 'spartan complex'] },
+  { id: 'wsq',  name: 'Washburn Hall',             abbr: 'WSH', lat: 37.3355, lng: -121.8773, x: 80, y: 52, w: 12, h: 10, kw: ['washburn'] },
+  { id: 'cv',   name: 'Campus Village',            abbr: 'CV',  lat: 37.3335, lng: -121.8780, x: 72, y: 72, w: 20, h: 18, kw: ['campus village', 'cvb', 'cva', 'cvc'] },
+  { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', lat: 37.3352, lng: -121.8812, x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
 ];
 
 // Open clusters: existing reports other students already filed.

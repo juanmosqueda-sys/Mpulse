@@ -185,7 +185,13 @@ select.field { width: 100%; height: 40px; border: 1px solid var(--line); border-
 input.field { width: 100%; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 0 12px; }
 .footer-cta { position: sticky; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); margin-top: auto; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); }
 
-/* Campus map (schematic) */
+/* Live map host */
+.map-host { position: relative; width: 100%; border-radius: 14px; overflow: hidden; background: var(--blue-soft); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; }
+.map-host .map-loading { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.map-host .leaflet-container { font-family: var(--font); }
+.map-host gmp-map-3d { display: block; }
+
+/* Campus map (schematic fallback) */
 .map { position: relative; width: 100%; border-radius: 14px; background: var(--blue-soft); border: 1px solid var(--line); overflow: hidden; }
 .map .street { position: absolute; font-size: 9px; font-weight: 600; color: var(--ink-3); letter-spacing: 0.04em; text-transform: uppercase; }
 .map .street.n { top: 3px; left: 50%; transform: translateX(-50%); }

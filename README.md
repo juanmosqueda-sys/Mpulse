@@ -41,7 +41,17 @@ Community posts route to their department when net votes reach `VOTE_THRESHOLD` 
 
 ## Campus map
 
-`campusMap()` in `app.js` draws a schematic SJSU map from the `x, y, w, h` fields in `BUILDINGS`. Positions are approximate (4th St to 10th St, San Fernando to San Salvador). Every building is a real `<button>`, so the map works by keyboard and screen reader. To add a building, add a row to `BUILDINGS`.
+`js/map.js` mounts a live map centered on SJSU with every open alert as a waypoint marker, colored by status. Three providers, chosen in `js/config.js`:
+
+| Provider | When | What you get |
+|---|---|---|
+| **Google Maps 3D** | `GOOGLE_MAPS_KEY` is set | Photorealistic 3D campus, tilted 67°, extruded pins, tap a building to select it |
+| **OpenStreetMap** | no key (default) | Real 2D map via Leaflet, colored markers, tap to select |
+| **Schematic** | `MAP_PROVIDER: 'schematic'` | Offline block diagram; used in the hosted preview, which blocks outside map servers |
+
+**Get the 3D map (5 minutes):** console.cloud.google.com → create a project → APIs & Services → Enable **Maps JavaScript API** → Credentials → Create API key → paste it into `js/config.js`. The free tier covers a hackathon many times over. Restrict the key to your domain before you publish anywhere public.
+
+Building coordinates live in `BUILDINGS` in `js/data.js` and are approximate; verify against the official campus map before production. Tapping the map picks the nearest building within 140 m.
 
 ## Accessibility
 
