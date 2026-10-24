@@ -813,21 +813,27 @@ function finishVoice(btn) {
   buzz(30);
   if (heard) { handleUtterance(heard, 'voice', { seconds: Math.max(1, Math.round(held)) }); return; }
   if (SR && !rec.failed) { toast("Didn't catch that. Hold the button and speak, then release."); speak("I didn't catch that. Try again."); return; }
-  // No speech API (or mic denied): fall back to a sample so the demo still works, and say so.
-  const why = rec.err === 'not-allowed' || rec.err === 'service-not-allowed' ? 'Microphone blocked' : 'No speech recognition in this browser';
-  toast(why + ' · using a sample sentence');
-  const samples = speech.assist ? [
-    'Report this problem. The ramp at the Student Union east entrance is blocked by a scooter pile',
-    'Alert students about this. There is water flooding the second floor hallway of Washburn Hall',
-    'Suggest an improvement. The library should keep the 6th floor open until midnight during finals',
-    'What are the alerts',
-  ] : [
-    'The elevator in Clark Hall is out again, second floor',
-    'None of the outlets on the 6th floor of the library work',
-    'There is water flooding the second floor hallway of Washburn Hall',
-    'Go to my reports',
-  ];
-  handleUtterance(samples[Math.floor(Math.random() * samples.length)], 'voice', { seconds: Math.max(3, Math.round(held)), sample: true });
+  // No speech API, or the mic was denied: say so plainly and let the person choose what to do.
+  const blocked = rec.err === 'not-allowed' || rec.err === 'service-not-allowed';
+  const why = !SR ? "This browser has no speech recognition." : blocked ? 'The microphone is blocked for this page.' : "The microphone didn't start (" + (rec.err || 'unknown') + ').';
+  sheet(`
+    <div class="stack" style="gap:6px"><h2 style="font-size:18px">Couldn\'t hear you</h2><span class="muted">${esc(why)} Opening this page in Safari or Chrome and allowing the microphone fixes it. Until then:</span></div>
+    <div class="stack" style="gap:8px">
+      <button class="btn primary big" data-voice-alt="type">Type it instead</button>
+      <button class="btn ghost big" data-voice-alt="sample">Use a sample report (demo)</button>
+    </div>`);
+  const was = speech.on; speech.on = true; speak("I couldn't hear you. " + why + " You can type it instead."); speech.on = was;
+  $('#sheet').querySelectorAll('[data-voice-alt]').forEach((b) => b.addEventListener('click', () => {
+    closeSheet();
+    if (b.dataset.voiceAlt === 'type') { const ta = $('#report-text'); if (ta) { ta.focus(); } return; }
+    const samples = [
+      'The elevator in Clark Hall is out again, second floor',
+      'None of the outlets on the 6th floor of the library work',
+      'There is water flooding the second floor hallway of Washburn Hall',
+      'The ramp at the Student Union east entrance is blocked by a scooter pile',
+    ];
+    handleUtterance(samples[Math.floor(Math.random() * samples.length)], 'voice', { seconds: Math.max(3, Math.round(held)), sample: true });
+  }));
 }
 
 function sheet(html) {
