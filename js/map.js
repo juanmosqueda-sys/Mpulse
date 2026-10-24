@@ -33,6 +33,8 @@ const MapKit = (() => {
       if (want === 'google') {
         try {
           await loadScript(`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(CONFIG.GOOGLE_MAPS_KEY)}&v=beta&libraries=maps3d,marker&loading=async`);
+          for (let i = 0; i < 100 && !(window.google && google.maps && google.maps.importLibrary); i++) await new Promise((r) => setTimeout(r, 50));
+          if (!(window.google && google.maps && google.maps.importLibrary)) throw new Error('google.maps did not initialize');
           await google.maps.importLibrary('maps3d');
           provider = 'google'; return provider;
         } catch (e) { console.warn('Google Maps unavailable, falling back to OpenStreetMap', e); }
