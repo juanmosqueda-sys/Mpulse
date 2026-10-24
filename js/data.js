@@ -36,7 +36,7 @@ const BUILDINGS = [
   { id: 'cb2',  name: 'Clark Hall (CB2)',          abbr: 'CL',  lat: 37.335915, lng: -121.882547, x: 12, y: 50, w: 13, h: 12, kw: ['clark', 'cb2', 'cb 2'] },
   { id: 'dh',   name: 'Duncan Hall',               abbr: 'DH',  lat: 37.332572, lng: -121.882062, x: 12, y: 74, w: 16, h: 12, kw: ['duncan'] },
   { id: 'sci',  name: 'Science Building (Old)',    abbr: 'SCI', lat: 37.334956, lng: -121.884954, x: 30, y: 36, w: 12, h: 10, kw: ['science building', 'science '] },
-  { id: 'sh',   name: 'Sweeney Hall',              abbr: 'SH',  lat: 37.333956, lng: -121.881083, x: 32, y: 58, w: 12, h: 10, kw: ['sweeney'] },
+  { id: 'sh',   name: 'Sweeney Hall',              abbr: 'SH',  lat: 37.333766, lng: -121.881048, x: 32, y: 58, w: 12, h: 10, kw: ['sweeney'] },
   { id: 'su',   name: 'Student Union',             abbr: 'SU',  lat: 37.336128, lng: -121.881477, x: 48, y: 28, w: 16, h: 14, kw: ['student union', 'union'] },
   { id: 'eng',  name: 'Engineering Building',      abbr: 'ENG', lat: 37.336825, lng: -121.881132, x: 68, y: 10, w: 18, h: 16, kw: ['engineering', 'eng building', 'eng '] },
   { id: 'art',  name: 'Art Building',              abbr: 'ART', lat: 37.335949, lng: -121.879799, x: 52, y: 66, w: 14, h: 12, kw: ['art building', 'art '] },
