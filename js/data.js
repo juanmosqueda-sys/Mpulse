@@ -39,7 +39,7 @@ const BUILDINGS = [
   { id: 'sh',   name: 'Sweeney Hall',              abbr: 'SH',  lat: 37.333766, lng: -121.881048, x: 32, y: 58, w: 12, h: 10, kw: ['sweeney'] },
   { id: 'su',   name: 'Student Union',             abbr: 'SU',  lat: 37.336128, lng: -121.881477, x: 48, y: 28, w: 16, h: 14, kw: ['student union', 'union'] },
   { id: 'eng',  name: 'Engineering Building',      abbr: 'ENG', lat: 37.336825, lng: -121.881132, x: 68, y: 10, w: 18, h: 16, kw: ['engineering', 'eng building', 'eng '] },
-  { id: 'art',  name: 'Art Building',              abbr: 'ART', lat: 37.335949, lng: -121.879799, x: 52, y: 66, w: 14, h: 12, kw: ['art building', 'art '] },
+  { id: 'art',  name: 'Art & Design Building',     abbr: 'ART', lat: 37.335886, lng: -121.880097, x: 52, y: 66, w: 14, h: 12, kw: ['art building', 'art & design', 'art and design', 'art '] },
   { id: 'spx',  name: 'Spartan Complex (SPX)',     abbr: 'SPX', lat: 37.334253, lng: -121.882179, x: 30, y: 84, w: 22, h: 10, kw: ['spx', 'spartan complex'] },
   { id: 'wsq',  name: 'Washington Square Hall',    abbr: 'WSQ', lat: 37.334277, lng: -121.884026, x: 14, y: 58, w: 12, h: 10, kw: ['washington square', 'wsq'] },
   { id: 'wsh',  name: 'Washburn Hall',             abbr: 'WSH', lat: 37.333733, lng: -121.879434, x: 80, y: 52, w: 12, h: 10, kw: ['washburn', 'wsh'] },
@@ -61,6 +61,7 @@ const BUILDINGS = [
   { id: 'cvb',  name: 'Campus Village B',          abbr: 'CVB', lat: 37.335089, lng: -121.877642, x: 86, y: 70, w: 8, h: 8, kw: ['campus village b', 'cvb'] },
   { id: 'cv2',  name: 'Campus Village 2',          abbr: 'CV2', lat: 37.335016, lng: -121.878670, x: 78, y: 66, w: 8, h: 8, kw: ['campus village 2', 'cv2'] },
   { id: 'mus',  name: 'Music Building',            abbr: 'MUS', lat: 37.335691, lng: -121.880791, x: 56, y: 36, w: 10, h: 8, kw: ['music building', 'music', 'concert hall'] },
+  { id: 'hb',   name: 'Health Building',           abbr: 'HB',  lat: 37.335820, lng: -121.879134, x: 70, y: 44, w: 10, h: 8, kw: ['health building', 'nursing', ' hb '] },
   { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', lat: 37.334435, lng: -121.880655, x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
 ];
 
