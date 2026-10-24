@@ -589,7 +589,7 @@ async function refineWithAI(d) {
   else if (d.trust === 'review' && r.confidence >= 0.7 && d.text && d.text.trim().split(/\s+/).length >= 3) { d.trust = 'ok'; d.reasons = []; }
   render();
   if (d.emergency && !wasEmergency) openEmergency();
-  if (d.photo || speech.on || speech.assist) { const was = speech.on; speech.on = true; speak((r.description ? r.description + ' ' : '') + (d.objectOnly ? `I see the ${typeById(d.type).label.toLowerCase()} but not what is wrong. Tell me what is wrong with it.` : `Filed as ${typeById(d.type).label}, ${CATEGORY[d.category].label}.`)); speech.on = was; }
+  if (speech.on || speech.assist) { const was = speech.on; speech.on = true; speak((r.description ? r.description + ' ' : '') + (d.objectOnly ? `I see the ${typeById(d.type).label.toLowerCase()} but not what is wrong. Tell me what is wrong with it.` : `Filed as ${typeById(d.type).label}, ${CATEGORY[d.category].label}.`)); speech.on = was; }
   if (d.severity === 'high' || d.severity === 'critical') buzz([120, 60, 120]);
 }
 
@@ -606,7 +606,7 @@ function handleUtterance(text, source, extra = {}) {
 }
 
 function runCommand(cmd) {
-  const was = speech.on; speech.on = true;
+  const was = speech.on; if (speech.assist) speech.on = true;
   if (cmd.cmd === 'go') { go(cmd.view); }
   else if (cmd.cmd === 'alerts') {
     const live = state.alerts.filter((a) => a.status === 'verified');
@@ -909,7 +909,7 @@ function finishVoice(btn) {
       <button class="btn primary big" data-voice-alt="type">Type it instead</button>
       <button class="btn ghost big" data-voice-alt="sample">Use a sample report (demo)</button>
     </div>`);
-  const was = speech.on; speech.on = true; speak("I couldn't hear you. " + why + " You can type it instead."); speech.on = was;
+  speak("I couldn't hear you. " + why + " You can type it instead.");
   $('#sheet').querySelectorAll('[data-voice-alt]').forEach((b) => b.addEventListener('click', () => {
     closeSheet();
     if (b.dataset.voiceAlt === 'type') { const ta = $('#report-text'); if (ta) { ta.focus(); } return; }
@@ -1094,8 +1094,8 @@ $('#photo-input').addEventListener('change', (e) => {
     state.pendingHint = null;
     state.draft.photo = r.result; state.draft.source = 'photo';
     if (state.view !== 'review') go('review'); else render();
-    if (AI.enabled()) { if (see) { const was = speech.on; speech.on = true; speak('Looking at the photo.'); speech.on = was; } refineWithAI(state.draft); }
-    else if (see) { const was = speech.on; speech.on = true; speak('Photo attached. Describe what is wrong, and I will file it.'); speech.on = was; }
+    if (AI.enabled()) { if (see) speak('Looking at the photo.'); refineWithAI(state.draft); }
+    else if (see) speak('Photo attached. Describe what is wrong, and I will file it.');
   };
   r.readAsDataURL(f);
   e.target.value = '';
