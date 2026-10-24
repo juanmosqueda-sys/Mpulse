@@ -98,6 +98,20 @@ function parseCommand(text) {
   return null;
 }
 
+// Topic for Community posts, guessed from the text. Maps to the department that would own it.
+function topicFor(text) {
+  const c = classify(text);
+  const t = typeById(c.type);
+  if (c.emergency) return { topic: 'Safety', dept: 'upd' };
+  if (t.coDept === 'access' || /\b(wheelchair|ramp|accessib|elevator|braille|screen reader)\b/i.test(text)) return { topic: 'Accessibility', dept: 'access' };
+  if (c.type === 'safety' || ALERT_KW.some((k) => (' ' + text.toLowerCase() + ' ').includes(k))) return { topic: 'Safety', dept: 'upd' };
+  if (t.dept === 'it' || /\b(app|website|canvas|login|wifi|wi-fi|internet|printer|computer|laptop|charger|software)\b/i.test(text)) return { topic: 'Tech', dept: 'it' };
+  if (/\b(dorm|housing|roommate|rent|laundry|campus village|joe west|washburn)\b/i.test(text)) return { topic: 'Housing', dept: 'housing' };
+  if (/\b(hours|policy|open until|close|schedule|fee|tuition|parking permit|registration|advising|professor|class|exam|library)\b/i.test(text)) return { topic: 'Policy', dept: 'library' };
+  if (c.type !== 'other') return { topic: 'Facilities', dept: 'fdo' };
+  return { topic: 'Other', dept: 'fdo' };
+}
+
 const CATEGORY = {
   fix:        { label: 'Broken — needs fixing',   short: 'Fix',        tone: 'blue',  what: 'Creates a work order and sends it to the right department.' },
   alert:      { label: 'Alert staff and students', short: 'Alert',      tone: 'red',   what: 'Grouped with matching reports. A staff member verifies it before anyone is notified.' },
@@ -367,6 +381,7 @@ function Review() {
 function sortedPosts() {
   let ps = [...state.posts];
   if (state.filter === 'safety') ps = ps.filter((p) => p.category === 'Safety');
+  if (state.filter === 'suggestions') ps = ps.filter((p) => p.kind === 'suggestion');
   if (state.filter === 'resolved') ps = ps.filter((p) => p.status === 'resolved');
   const score = (p) => (p.up - p.down) / Math.pow(1 + (Date.now() - new Date(p.at)) / 36e5, 0.6);
   if (state.sort === 'trending') ps.sort((a, b) => score(b) - score(a));
@@ -396,7 +411,7 @@ function PostCard(p, full = false) {
     </div>
     <div class="stack grow" style="gap:8px">
       <div class="post-meta"><span class="av"></span><b>Anonymous Spartan</b><span>·</span><span>${ago(p.at)}</span><span class="pill ${st.tone}" style="margin-left:auto">${esc(st.label)}</span></div>
-      <div class="post-meta" style="gap:4px;color:var(--ink-2)"><span class="pill ${p.category === 'Safety' ? 'red' : p.category === 'Suggestion' ? 'gold' : 'blue'}">${esc(p.category)}</span>${p.aiRouted ? '<span class="muted small">· filed by AI</span>' : ''}<span style="display:inline-flex;align-items:center;gap:3px">${ICONS.pin} ${esc(b ? b.name : 'Campus')}</span></div>
+      <div class="post-meta" style="gap:4px;color:var(--ink-2)"><span class="pill ${p.category === 'Safety' ? 'red' : p.category === 'Accessibility' ? 'green' : 'blue'}">${esc(p.category)}</span>${p.kind === 'suggestion' ? '<span class="pill gold">Suggestion</span>' : ''}${p.aiRouted ? '<span class="muted small">· tagged by AI</span>' : ''}<span style="display:inline-flex;align-items:center;gap:3px">${ICONS.pin} ${esc(b ? b.name : 'Campus')}</span></div>
       <button class="post-title" data-open="${p.id}" style="all:unset;cursor:pointer"><h3>${esc(p.title)}</h3></button>
       <p>${esc(p.body)}</p>
       ${updates ? (full ? updates : updates.split('</div>')[0] + '</div>') : ''}
@@ -410,7 +425,7 @@ function PostCard(p, full = false) {
 
 function Community() {
   const sorts = [['trending','Trending'],['near','Near me'],['supported','Most supported'],['recent','Recently posted']];
-  const filters = [['all','All'],['safety','Safety'],['resolved','Resolved']];
+  const filters = [['all','All'],['safety','Safety'],['suggestions','Suggestions'],['resolved','Resolved']];
   const verified = state.user ? `<span class="verified">${ICONS.shield} ${esc(state.user.email)}</span>` : `<button class="btn ghost" style="height:30px;padding:0 10px;font-size:12px" data-act="verify">Verify SJSU account</button>`;
   return `
   <div class="topbar">
@@ -623,7 +638,8 @@ function submitSuggestion() {
   const d = state.draft, now = new Date().toISOString();
   const id = 'p' + Date.now();
   const b = d.building ? bldgById(d.building) : null;
-  state.posts.unshift({ id, title: d.text.length > 80 ? d.text.slice(0, 77) + '…' : d.text, body: d.text.length > 80 ? d.text : '', category: 'Suggestion', building: d.building, up: 1, down: 0, comments: 0, at: now, dept: typeById(d.type).dept, status: 'collecting', updates: [], aiRouted: true });
+  const tp = topicFor(d.text);
+  state.posts.unshift({ id, title: d.text.length > 80 ? d.text.slice(0, 77) + '…' : d.text, body: d.text.length > 80 ? d.text : '', category: tp.topic, kind: 'suggestion', building: d.building, up: 1, down: 0, comments: 0, at: now, dept: tp.dept, status: 'collecting', updates: [], aiRouted: true });
   state.votes[id] = 'up';
   state.draft = null; state.sort = 'recent'; save(); go('community');
   toast('Filed as a suggestion. Collecting support.'); speak(`Filed as a suggestion in Community${b ? ' for ' + b.name : ''}. It reaches staff at ${VOTE_THRESHOLD} votes.`);
@@ -720,18 +736,19 @@ function openNewPost() {
     <form class="stack" id="post-form" style="gap:8px">
       <input class="field" id="np-title" placeholder="What's the issue?" required maxlength="90">
       <textarea class="field" id="np-body" rows="3" placeholder="Where, when, and what happened" style="height:auto;padding:10px 12px;resize:none"></textarea>
-      <div class="row" style="gap:8px">
-        <select class="field" id="np-cat"><option>Safety</option><option>Tech</option><option>Policy</option><option>Facilities</option><option>Other</option></select>
-        <select class="field" id="np-bldg"><option value="">Location</option>${BUILDINGS.map((b) => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select>
-      </div>
+      <select class="field" id="np-bldg"><option value="">Location (optional, AI will try to detect it)</option>${BUILDINGS.map((b) => `<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select>
+      <div class="row" style="gap:8px;font-size:12px;color:var(--ink-2)"><span style="color:var(--blue)">${ICONS.spark}</span><span>AI tags it: <b id="np-guess" style="color:var(--ink)">start typing…</b></span></div>
       <button class="btn primary big" type="submit">Post</button>
     </form>`);
+  const guess = () => { const txt = ($('#np-title').value + ' ' + $('#np-body').value).trim(); const g = $('#np-guess'); if (!txt) { g.textContent = 'start typing…'; return; } const tp = topicFor(txt); const c = classify(txt); const b = c.building ? bldgById(c.building) : null; g.textContent = tp.topic + (b ? ' · ' + b.name : '') + ' → ' + deptById(tp.dept).short; if (b && !$('#np-bldg').value) $('#np-bldg').value = c.building; };
+  $('#np-title').addEventListener('input', guess); $('#np-body').addEventListener('input', guess);
   $('#post-form').addEventListener('submit', (e) => {
     e.preventDefault();
-    const cat = $('#np-cat').value;
-    const dept = cat === 'Safety' ? 'upd' : cat === 'Tech' ? 'it' : cat === 'Policy' ? 'library' : 'fdo';
+    const txt = ($('#np-title').value + ' ' + $('#np-body').value).trim();
+    const tp = topicFor(txt);
+    const c = classify(txt);
     const id = 'p' + Date.now();
-    state.posts.unshift({ id, title: $('#np-title').value.trim(), body: $('#np-body').value.trim(), category: cat, building: $('#np-bldg').value || null, up: 1, down: 0, comments: 0, at: new Date().toISOString(), dept, status: 'collecting', updates: [] });
+    state.posts.unshift({ id, title: $('#np-title').value.trim(), body: $('#np-body').value.trim(), category: tp.topic, kind: c.category === 'suggestion' ? 'suggestion' : undefined, building: $('#np-bldg').value || c.building || null, up: 1, down: 0, comments: 0, at: new Date().toISOString(), dept: tp.dept, status: 'collecting', updates: [], aiRouted: true });
     state.votes[id] = 'up';
     save(); closeSheet(); state.sort = 'recent'; render(); toast('Posted. Collecting support.');
   });

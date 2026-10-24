@@ -114,7 +114,7 @@ const SEED_POSTS = [
     status: 'collecting', updates: [] },
   { id: 'p3', title: 'No quiet study space open after 10 PM during midterms',
     body: 'MLK closes the upper floors at 10. Everyone ends up on the ground floor and it’s loud.',
-    category: 'Policy', building: 'mlk', up: 31, down: 9, comments: 6, at: daysAgo(2), dept: 'library',
+    category: 'Policy', kind: 'suggestion', building: 'mlk', up: 31, down: 9, comments: 6, at: daysAgo(2), dept: 'library',
     status: 'collecting', updates: [] },
   { id: 'p4', title: 'MLK Library website down for room bookings',
     body: 'Booking page 500s every time. Had to walk up and ask at the desk.',
