@@ -1,6 +1,6 @@
-# EAiSER Campus
+# Mpulse Campus
 
-Campus version of EAiSER for San José State University, built at SpartHill Hacks 2026 for the MomntumAI track.
+Mpulse Campus — a campus version of MomntumAI's EAiSER for San José State University, built at SpartHill Hacks 2026.
 
 Students report broken or unsafe things three ways — **type it, say it, or snap it** — and the app classifies each report and routes it to the right campus department. A separate **Community** tab handles issues that need a crowd behind them before a department sees them.
 
