@@ -2,16 +2,18 @@
 
 const DEPARTMENTS = {
   fdo:     { id: 'fdo',     name: 'Facilities Development & Operations', short: 'Facilities' },
-  it:      { id: 'it',      name: 'IT Services',                          short: 'IT Services' },
+  it:      { id: 'it',      name: 'IT Services',                          short: 'IT' },
   library: { id: 'library', name: 'University Library',                   short: 'Library' },
-  upd:     { id: 'upd',     name: 'University Police & Parking',          short: 'UPD & Parking' },
+  upd:     { id: 'upd',     name: 'University Police (Safety)',           short: 'Safety' },
+  access:  { id: 'access',  name: 'Accessible Education Center',          short: 'Accessibility' },
   housing: { id: 'housing', name: 'University Housing',                   short: 'Housing' },
 };
 
-// issue type -> department, severity, label, keywords
+// issue type -> department, severity, label, keywords. coDept = also notified (accessibility-blocking issues).
 const ISSUE_TYPES = [
-  { id: 'elevator', label: 'Elevator',   dept: 'fdo',     severity: 'high',   kw: ['elevator', 'lift'] },
-  { id: 'door',     label: 'Door',       dept: 'fdo',     severity: 'medium', kw: ['door', 'automatic door', 'handle', 'lock'] },
+  { id: 'elevator', label: 'Elevator',   dept: 'fdo',     coDept: 'access', severity: 'high',   kw: ['elevator', 'lift'] },
+  { id: 'door',     label: 'Door',       dept: 'fdo',     coDept: 'access', severity: 'medium', kw: ['door', 'automatic door', 'handle', 'lock'] },
+  { id: 'ramp',     label: 'Ramp / Path', dept: 'fdo',    coDept: 'access', severity: 'high',   kw: ['ramp', 'wheelchair', 'curb', 'sidewalk', 'crack', 'trip', 'stairs', 'handrail', 'accessible'] },
   { id: 'outlet',   label: 'Outlet',     dept: 'fdo',     severity: 'medium', kw: ['outlet', 'socket', 'plug', 'charger', 'power'] },
   { id: 'hvac',     label: 'AC / Heat',  dept: 'fdo',     severity: 'medium', kw: ['ac ', 'a/c', 'air conditioning', 'heat', 'cold', 'hot', 'hvac', 'thermostat'] },
   { id: 'lighting', label: 'Lighting',   dept: 'fdo',     severity: 'high',   kw: ['light', 'lamp', 'dark', 'bulb'] },
@@ -25,20 +27,21 @@ const ISSUE_TYPES = [
   { id: 'other',    label: 'Other',      dept: 'fdo',     severity: 'low',    kw: [] },
 ];
 
+// x,y: position on the schematic campus map (0–100). Campus runs 4th St (west) to 10th St (east), San Fernando (north) to San Salvador (south).
 const BUILDINGS = [
-  { id: 'cb2',  name: 'Clark Hall (CB2)',          kw: ['clark', 'cb2', 'cb 2'] },
-  { id: 'mlk',  name: 'MLK Library',               kw: ['mlk', 'library', 'king library'] },
-  { id: 'eng',  name: 'Engineering Building',      kw: ['engineering', 'eng building', 'eng '] },
-  { id: 'art',  name: 'Art Building',              kw: ['art building', 'art '] },
-  { id: 'wsq',  name: 'Washburn Hall',             kw: ['washburn'] },
-  { id: 'su',   name: 'Student Union',             kw: ['student union', 'union'] },
-  { id: 'dh',   name: 'Duncan Hall',               kw: ['duncan'] },
-  { id: 'dmh',  name: 'Dudley Moorhead Hall',      kw: ['dudley', 'dmh', 'moorhead'] },
-  { id: 'sh',   name: 'Sweeney Hall',              kw: ['sweeney'] },
-  { id: 'spx',  name: 'Spartan Complex (SPX)',     kw: ['spx', 'spartan complex'] },
-  { id: 'cv',   name: 'Campus Village',            kw: ['campus village', 'cvb', 'cva', 'cvc'] },
-  { id: 'paseo',name: 'Paseo de San Carlos',       kw: ['paseo', 'san carlos'] },
-  { id: 'sci',  name: 'Science Building',          kw: ['science building', 'science '] },
+  { id: 'mlk',  name: 'MLK Library',               abbr: 'MLK', x: 10, y: 12, w: 16, h: 14, kw: ['mlk', 'library', 'king library'] },
+  { id: 'dmh',  name: 'Dudley Moorhead Hall',      abbr: 'DMH', x: 10, y: 32, w: 14, h: 10, kw: ['dudley', 'dmh', 'moorhead'] },
+  { id: 'cb2',  name: 'Clark Hall (CB2)',          abbr: 'CL',  x: 12, y: 50, w: 13, h: 12, kw: ['clark', 'cb2', 'cb 2'] },
+  { id: 'dh',   name: 'Duncan Hall',               abbr: 'DH',  x: 12, y: 74, w: 16, h: 12, kw: ['duncan'] },
+  { id: 'sci',  name: 'Science Building',          abbr: 'SCI', x: 30, y: 36, w: 12, h: 10, kw: ['science building', 'science '] },
+  { id: 'sh',   name: 'Sweeney Hall',              abbr: 'SH',  x: 32, y: 58, w: 12, h: 10, kw: ['sweeney'] },
+  { id: 'su',   name: 'Student Union',             abbr: 'SU',  x: 48, y: 28, w: 16, h: 14, kw: ['student union', 'union'] },
+  { id: 'eng',  name: 'Engineering Building',      abbr: 'ENG', x: 68, y: 10, w: 18, h: 16, kw: ['engineering', 'eng building', 'eng '] },
+  { id: 'art',  name: 'Art Building',              abbr: 'ART', x: 52, y: 66, w: 14, h: 12, kw: ['art building', 'art '] },
+  { id: 'spx',  name: 'Spartan Complex (SPX)',     abbr: 'SPX', x: 30, y: 84, w: 22, h: 10, kw: ['spx', 'spartan complex'] },
+  { id: 'wsq',  name: 'Washburn Hall',             abbr: 'WSH', x: 80, y: 52, w: 12, h: 10, kw: ['washburn'] },
+  { id: 'cv',   name: 'Campus Village',            abbr: 'CV',  x: 72, y: 72, w: 20, h: 18, kw: ['campus village', 'cvb', 'cva', 'cvc'] },
+  { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
 ];
 
 // Open clusters: existing reports other students already filed.

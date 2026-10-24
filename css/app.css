@@ -183,7 +183,29 @@ svg { flex-shrink: 0; }
 .progress-steps span.on { background: var(--blue); }
 select.field { width: 100%; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 0 10px; }
 input.field { width: 100%; height: 40px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 0 12px; }
-.footer-cta { position: sticky; bottom: 0; margin-top: auto; background: var(--card); border-top: 1px solid var(--line); padding: 12px 0 8px; display: flex; flex-direction: column; gap: 8px; }
+.footer-cta { position: sticky; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); margin-top: auto; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); }
+
+/* Campus map (schematic) */
+.map { position: relative; width: 100%; border-radius: 14px; background: var(--blue-soft); border: 1px solid var(--line); overflow: hidden; }
+.map .street { position: absolute; font-size: 9px; font-weight: 600; color: var(--ink-3); letter-spacing: 0.04em; text-transform: uppercase; }
+.map .street.n { top: 3px; left: 50%; transform: translateX(-50%); }
+.map .street.s { bottom: 3px; left: 50%; transform: translateX(-50%); }
+.map .street.w { left: -16px; top: 50%; transform: rotate(-90deg); }
+.map .street.e { right: -16px; top: 50%; transform: rotate(90deg); }
+.map .lawn { position: absolute; border-radius: 6px; background: var(--green-soft); }
+.map .bld { position: absolute; border-radius: 6px; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: var(--ink-2); padding: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.map .bld.path { background: var(--gold-soft); border-color: var(--gold); border-radius: 999px; color: var(--gold-text); font-weight: 600; }
+.map button.bld { cursor: pointer; }
+.map button.bld:hover { border-color: var(--blue); color: var(--blue); }
+.map .bld.sel { background: var(--blue); border-color: var(--blue); color: #FFFFFF; z-index: 2; box-shadow: 0 0 0 3px rgba(0,85,162,0.25); }
+.map .bld .dot { position: absolute; top: -5px; right: -5px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--card); background: var(--ink-3); }
+.map .bld.pin.gold .dot { background: var(--gold); }
+.map .bld.pin.blue .dot { background: var(--blue); }
+.map .bld.pin.green .dot { background: var(--green); }
+.map .bld.pin.red .dot { background: var(--red); }
+.map .bld .marker { position: absolute; top: -22px; left: 50%; transform: translateX(-50%); width: 24px; height: 24px; border-radius: 50% 50% 50% 0; background: var(--gold); display: flex; align-items: center; justify-content: center; color: #14213D; transform: translateX(-50%) rotate(-45deg); }
+.map .bld .marker svg { transform: rotate(45deg); }
+.map .bld:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; z-index: 3; }
 
 /* Community */
 .post { display: flex; gap: 12px; }

@@ -106,6 +106,46 @@ const ICONS = {
   info:     '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
 };
 const iconFor = (type) => ICONS[type] || ICONS.generic;
+ICONS.speaker = '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>';
+ICONS.map = '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16"/><path d="M16 6v16"/></svg>';
+
+// ---------- campus map ----------
+// Schematic map of SJSU. Each building is a real <button>, so it works with a keyboard and a screen reader.
+function campusMap({ selected = null, pins = [], interactive = false, height = 230 } = {}) {
+  const pinFor = (id) => pins.find((p) => p.building === id);
+  const blocks = BUILDINGS.map((b) => {
+    const pin = pinFor(b.id);
+    const sel = b.id === selected;
+    const tag = interactive ? 'button' : 'div';
+    const cls = ['bld', b.path ? 'path' : '', sel ? 'sel' : '', pin ? 'pin ' + pin.tone : ''].join(' ');
+    const label = `${b.name}${pin ? `, ${pin.label}` : ''}${sel ? ', selected' : ''}`;
+    return `<${tag} class="${cls}" ${interactive ? `type="button" data-bld="${b.id}" aria-pressed="${sel}"` : ''} aria-label="${esc(label)}" style="left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%">
+      <span aria-hidden="true">${esc(b.abbr)}</span>${pin ? `<i aria-hidden="true" class="dot"></i>` : ''}${sel ? `<i aria-hidden="true" class="marker">${ICONS.pin}</i>` : ''}
+    </${tag}>`;
+  }).join('');
+  return `<div class="map" style="height:${height}px" role="group" aria-label="SJSU campus map">
+    <span class="street n" aria-hidden="true">E San Fernando St</span>
+    <span class="street s" aria-hidden="true">E San Salvador St</span>
+    <span class="street w" aria-hidden="true">S 4th St</span>
+    <span class="street e" aria-hidden="true">S 10th St</span>
+    <i class="lawn" aria-hidden="true" style="left:36%;top:14%;width:12%;height:12%"></i>
+    <i class="lawn" aria-hidden="true" style="left:46%;top:56%;width:30%;height:6%"></i>
+    ${blocks}
+  </div>`;
+}
+
+// ---------- spoken mode (for low-vision use) ----------
+const speech = { on: false };
+function speak(text) {
+  if (!speech.on || !('speechSynthesis' in window)) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 1.05; speechSynthesis.speak(u); } catch (e) { /* ignore */ }
+}
+function describeDraft() {
+  const d = state.draft; if (!d) return '';
+  const t = typeById(d.type), b = d.building ? bldgById(d.building) : null, dept = deptById(t.dept);
+  const cluster = d.building ? findCluster(d.type, d.building) : null;
+  return `Review. Issue: ${t.label}. Location: ${b ? b.name : 'not set yet'}${d.detail ? ', ' + d.detail : ''}. Severity ${d.severity}. ${cluster ? cluster.count + ' other students reported this. ' : ''}Routes to ${dept.name}${t.coDept ? ', and ' + deptById(t.coDept).name : ''}. Submit button is at the bottom.`;
+}
 const toneFor = (status) => ({ submitted: 'blue', routed: 'blue', acknowledged: 'gold', in_progress: 'gold', resolved: 'green' }[status] || 'neutral');
 
 // ---------- views ----------
@@ -129,8 +169,15 @@ function header(title, sub) {
       <div class="seal"><img src="assets/sjsu-seal.png" alt="San José State University seal"></div>
       <div><div class="brand-name">EAiSER <span>Campus</span></div><div class="brand-sub">San José State University</div></div>
     </div>
-    <button class="icon-btn" aria-label="Notifications" data-act="notif">${ICONS.bell}<span class="dot"></span></button>
+    <div class="row" style="gap:8px">
+      <button class="icon-btn" aria-label="${speech.on ? 'Turn off spoken mode' : 'Turn on spoken mode'}" aria-pressed="${speech.on}" data-act="speak" ${speech.on ? 'style="background:var(--blue);color:#fff;border-color:var(--blue)"' : ''}>${ICONS.speaker}</button>
+      <button class="icon-btn" aria-label="Notifications" data-act="notif">${ICONS.bell}<span class="dot"></span></button>
+    </div>
   </div>`;
+}
+
+function clusterPins() {
+  return SEED_CLUSTERS.filter((c) => c.status !== 'resolved').map((c) => ({ building: c.building, tone: toneFor(c.status), label: `${clusterTitle(c)}, ${REPORT_STATUS[c.status]}` }));
 }
 
 function Home() {
@@ -163,9 +210,10 @@ function Home() {
     <span class="wave" aria-hidden="true"><span style="height:10px"></span><span style="height:20px"></span><span style="height:14px"></span><span style="height:26px"></span><span style="height:16px"></span><span style="height:8px"></span></span>
   </button>
   <div class="row between" style="margin-top:6px">
-    <h2>Near you</h2>
-    <button class="btn ghost" style="height:30px;padding:0 10px;font-size:12px" data-go="community">See all</button>
+    <h2>Open on campus</h2>
+    <span class="muted small row" style="gap:4px">${ICONS.map} Live map</span>
   </div>
+  ${campusMap({ pins: clusterPins(), height: 200 })}
   <div class="stack">${near}</div>`;
 }
 
@@ -202,9 +250,12 @@ function Review() {
   <div class="card pad stack">
     <div class="stack" style="gap:8px"><span class="eyebrow">Issue type</span><div class="chips">${chips}</div></div>
     <div class="hr"></div>
-    <div class="stack" style="gap:6px">
-      <div class="row between"><span class="eyebrow">Location</span>${d.building && d.autoBuilding ? '<span class="pill green">Matched from text</span>' : ''}</div>
+    <div class="stack" style="gap:8px">
+      <div class="row between"><span class="eyebrow">Location</span>${d.building && d.autoBuilding ? `<span class="pill green">${d.source === 'photo' ? 'From photo GPS' : 'Matched from text'}</span>` : d.building ? '' : '<span class="pill gold">Tap a building</span>'}</div>
+      ${campusMap({ selected: d.building, interactive: true, height: 210 })}
+      <label class="eyebrow" for="bldg" style="margin-top:2px">Building</label>
       <select class="field" id="bldg">${bOpts}</select>
+      <label class="eyebrow" for="detail">Where in the building</label>
       <input class="field" id="detail" placeholder="Floor, room, or landmark (optional)" value="${esc(d.detail)}">
     </div>
     <div class="hr"></div>
@@ -217,9 +268,12 @@ function Review() {
       <div class="avatars"><span style="background:var(--blue)"></span><span style="background:#1C88CA"></span><span class="n">+${Math.max(0, cluster.count - 2)}</span></div>
       <div class="stack" style="gap:2px"><b style="font-size:14px">${cluster.count} other students reported this</b><span class="muted small">First report ${fmtDate(cluster.first)} · most recent ${ago(cluster.last)} ago. You're not the only one.</span></div>
     </div>` : ''}
-  <div class="row" style="padding:4px 2px"><span style="color:var(--ink-2)">${ICONS.send}</span><div><div class="muted small">Routes to</div><div style="font-size:13px;font-weight:600">${esc(dept.name)}</div></div></div>
+  <div class="row" style="padding:4px 2px;align-items:flex-start"><span style="color:var(--ink-2);margin-top:2px">${ICONS.send}</span><div><div class="muted small">Creates a work order with</div><div style="font-size:13px;font-weight:600">${esc(dept.name)}</div>${t.coDept ? `<div class="row" style="gap:4px;font-size:12px;color:var(--blue);font-weight:600;margin-top:2px">${ICONS.shield} Also notifies ${esc(deptById(t.coDept).name)}</div>` : ''}</div></div>
   <div class="footer-cta">
-    <button class="btn primary big" id="submit-report" ${d.building ? '' : 'disabled'}>Submit report ${ICONS.arrow}</button>
+    <div class="row" style="gap:8px">
+      <button class="btn ghost" style="height:54px;border-radius:16px;padding:0 14px" data-act="readback" aria-label="Read this report back to me">${ICONS.speaker}</button>
+      <button class="btn primary big" id="submit-report" ${d.building ? '' : 'disabled'}>Submit work order ${ICONS.arrow}</button>
+    </div>
     <span class="muted" style="text-align:center;font-size:11px">Your name is shared only with the department, never with other students.</span>
   </div>`;
 }
@@ -323,7 +377,8 @@ function Mine() {
   const counts = { all: rs.length, prog: rs.filter((r) => ['routed','acknowledged','in_progress'].includes(r.status)).length, fixed: rs.filter((r) => r.status === 'resolved').length };
   const cards = rs.map((r, i) => ReportCard(r, i === 0)).join('');
   return `
-  <div class="stack" style="gap:3px"><h1>My reports</h1><span class="muted">Every report gets a status. You'll know what happened.</span></div>
+  <div class="stack" style="gap:3px"><h1>My work orders</h1><span class="muted">Every report becomes a work order with a status. You'll know what happened.</span></div>
+  ${rs.length ? campusMap({ pins: rs.filter((r) => r.building).map((r) => ({ building: r.building, tone: toneFor(r.status), label: `${r.title}, ${REPORT_STATUS[r.status]}` })), height: 170 }) : ''}
   <div class="stats">
     <div class="stat"><b class="num">${counts.all}</b><span>Submitted</span></div>
     <div class="stat"><b class="num" style="color:var(--gold-text)">${counts.prog}</b><span>In progress</span></div>
@@ -349,7 +404,7 @@ function ReportCard(r, open) {
   <article class="card pad stack" style="gap:14px">
     <button class="row" data-toggle="${r.id}" style="all:unset;cursor:pointer;display:flex;align-items:flex-start;gap:12px;width:100%">
       <span class="ico ${tone}">${iconFor(r.type)}</span>
-      <span class="grow"><div style="font-size:15px;font-weight:700">${esc(r.title)}</div><div class="muted small">${esc(b ? b.name : 'Campus')}${r.detail ? ' · ' + esc(r.detail) : ''} · #${r.id}</div></span>
+      <span class="grow"><div style="font-size:15px;font-weight:700">${esc(r.title)}</div><div class="muted small">${esc(b ? b.name : 'Campus')}${r.detail ? ' · ' + esc(r.detail) : ''} · ${r.id}${r.coDept ? ' · ' + esc(deptById(r.coDept).short) + ' notified' : ''}</div></span>
       <span class="pill ${tone}">${esc(REPORT_STATUS[r.status])}</span>
     </button>
     <div class="timeline" ${open || r.open ? '' : 'hidden'}>${tl}</div>
@@ -357,7 +412,14 @@ function ReportCard(r, open) {
 }
 
 // ---------- actions ----------
-function go(view) { state.view = view; render(); }
+function go(view) {
+  state.view = view; render();
+  const h = $('#view h1, #view .topbar span[style*="font-weight:700"]');
+  if (h) { h.setAttribute('tabindex', '-1'); h.focus({ preventScroll: true }); }
+  if (view === 'review') speak(describeDraft());
+  else if (view === 'mine') speak(`My work orders. ${state.reports.length} total.`);
+  else if (view === 'community') speak('Community. Posts need 100 votes to reach a department.');
+}
 
 function startDraft(text, source, extra = {}) {
   const c = classify(text);
@@ -370,22 +432,24 @@ function submitReport() {
   const t = typeById(d.type), dept = deptById(t.dept);
   const cluster = d.building ? findCluster(d.type, d.building) : null;
   const now = new Date().toISOString();
-  const id = 'C' + Math.random().toString(36).slice(2, 6).toUpperCase();
-  const events = [{ status: 'submitted', at: now, note: `took you ${d.seconds || 20} seconds` }];
+  const id = 'WO-' + String(1040 + state.reports.length + Math.floor(Math.random() * 9)).padStart(4, '0');
+  const co = t.coDept ? deptById(t.coDept) : null;
+  const events = [{ status: 'submitted', at: now, note: `took you ${d.seconds || 20} seconds · ${{ text: 'typed', voice: 'by voice', photo: 'with a photo' }[d.source]}` }];
   if (cluster) {
-    events.push({ status: 'routed', at: now, note: `Merged with ${cluster.count} matching reports` });
+    events.push({ status: 'routed', at: now, note: `Merged with ${cluster.count} matching reports${co ? ' · ' + co.short + ' notified' : ''}` });
     cluster.events.filter((e) => e.status !== 'routed').forEach((e) => events.push({ ...e }));
   } else {
-    events.push({ status: 'routed', at: now, note: 'New issue, first report' });
+    events.push({ status: 'routed', at: now, note: `New work order${co ? ' · ' + co.short + ' notified' : ''}` });
   }
   const status = cluster ? cluster.status : 'routed';
   const title = cluster ? clusterTitle(cluster) : `${t.label} issue`;
-  state.reports.push({ id, at: now, title, type: d.type, building: d.building, detail: d.detail, severity: d.severity, dept: dept.id, status, events, source: d.source });
+  state.reports.push({ id, at: now, title, type: d.type, building: d.building, detail: d.detail, severity: d.severity, dept: dept.id, coDept: co?.id || null, status, events, source: d.source, photo: d.photo });
   if (cluster) cluster.count += 1;
   state.draft = null;
   save();
   go('mine');
-  toast(`Report #${id} sent to ${dept.short}`);
+  const msg = `Work order ${id} opened with ${dept.short}${co ? ' and ' + co.short : ''}`;
+  toast(msg); speak(msg + '. It is now in My reports.');
 }
 
 function vote(id, dir) {
@@ -534,7 +598,20 @@ function bind() {
   el.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => { state.openPost = b.dataset.open; go('post'); }));
   el.querySelectorAll('[data-act="verify"]').forEach((b) => b.addEventListener('click', () => openVerify()));
   el.querySelectorAll('[data-act="newpost"]').forEach((b) => b.addEventListener('click', openNewPost));
-  el.querySelectorAll('[data-act="notif"]').forEach((b) => b.addEventListener('click', () => toast(state.reports.length ? `${state.reports.length} report${state.reports.length > 1 ? 's' : ''} being tracked` : 'No updates yet')));
+  el.querySelectorAll('[data-act="notif"]').forEach((b) => b.addEventListener('click', () => toast(state.reports.length ? `${state.reports.length} work order${state.reports.length > 1 ? 's' : ''} being tracked` : 'No updates yet')));
+  el.querySelectorAll('[data-act="speak"]').forEach((b) => b.addEventListener('click', () => {
+    speech.on = !speech.on; render();
+    if (speech.on) speak('Spoken mode on. Home. Describe the issue in the text box, hold the talk button, or tap Snap at the bottom to take a photo.');
+    else toast('Spoken mode off');
+  }));
+  el.querySelectorAll('[data-act="readback"]').forEach((b) => b.addEventListener('click', () => {
+    const was = speech.on; speech.on = true; speak(describeDraft()); speech.on = was;
+    if (!('speechSynthesis' in window)) toast('Speech is not available in this browser');
+  }));
+  el.querySelectorAll('[data-bld]').forEach((b) => b.addEventListener('click', () => {
+    state.draft.building = b.dataset.bld; state.draft.autoBuilding = false; render();
+    speak(bldgById(b.dataset.bld).name + ' selected');
+  }));
 
   const of = $('#official-form');
   if (of) of.addEventListener('submit', (e) => {
