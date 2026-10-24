@@ -120,7 +120,13 @@ const CATEGORY = {
 };
 
 function findCluster(type, building) {
-  return SEED_CLUSTERS.find((c) => c.type === type && c.building === building && c.status !== 'resolved') || null;
+  const seeded = SEED_CLUSTERS.find((c) => c.type === type && c.building === building && c.status !== 'resolved');
+  if (seeded) return seeded;
+  // Reports filed on this device earlier in the session count too.
+  const mine = state.reports.filter((r) => r.type === type && r.building === building && !['resolved', 'verified', 'dismissed', 'review'].includes(r.status) && r.category !== 'alert');
+  if (!mine.length) return null;
+  const first = mine[mine.length - 1];
+  return { id: 'own-' + first.id, type, building, detail: first.detail, count: mine.length, first: first.at, last: mine[0].at, status: mine[0].status, dept: first.dept, events: mine[0].events.filter((e) => e.status !== 'submitted' && e.status !== 'routed') };
 }
 
 function fmtTime(iso) {
@@ -224,7 +230,7 @@ function header(title, sub) {
   return `
   <div class="topbar">
     <div class="brand">
-      <div class="seal"><img src="assets/sjsu-seal.png" alt="San José State University seal"></div>
+      <button class="seal" id="seal-btn" aria-label="Mpulse Campus. Hold for demo options." style="padding:0;cursor:pointer"><img src="assets/sjsu-seal.png" alt=""></button>
       <div><div class="brand-name">Mpulse <span>Campus</span></div><div class="brand-sub">San José State University</div></div>
     </div>
     <div class="row" style="gap:8px">
@@ -316,7 +322,7 @@ function Review() {
   const t = typeById(d.type), b = d.building ? bldgById(d.building) : null, dept = deptById(t.dept);
   const cluster = d.building ? findCluster(d.type, d.building) : null;
   const sev = d.severity;
-  const typeBlock = d.confident
+  const typeBlock = d.confident || d.ai === 'thinking'
     ? ''
     : `<div class="stack" style="gap:6px"><div class="row between"><div><div class="eyebrow">Issue type</div><div style="font-size:14px;font-weight:600;color:var(--gold-text)">Not sure yet</div></div><span class="pill gold">Needs detail</span></div>
        <label class="eyebrow" for="more-detail">Tell the AI more</label>
@@ -353,7 +359,9 @@ function Review() {
     <span style="width:40px"></span>
   </div>
   ${photo}
-  ${d.seeDesc ? `<div class="card pad stack" style="gap:4px;border-color:var(--blue)"><span class="eyebrow blue">What the AI sees</span><p style="font-size:14px">${esc(d.seeDesc)}</p></div>` : ''}
+  ${d.ai === 'thinking' ? `<div class="row" style="gap:8px;font-size:13px;color:var(--ink-2)"><span class="spin" aria-hidden="true"></span>AI is reading your ${d.photo ? 'photo' : 'report'}…</div>` : ''}
+  ${d.seeDesc ? `<div class="card pad stack" style="gap:4px;border-color:var(--blue)"><span class="eyebrow blue">What the AI sees${d.aiModel ? ' · ' + esc(d.aiModel) : ''}</span><p style="font-size:14px">${esc(d.seeDesc)}</p></div>` : ''}
+  ${d.ai === 'off' ? `<span class="muted small">AI service unavailable right now${d.aiError ? ' (' + esc(d.aiError.slice(0, 80)) + ')' : ''}; using the built-in classifier.</span>` : ''}
   ${d.text ? `<div class="card pad stack" style="gap:4px"><span class="eyebrow">${esc(srcLabel)}</span><p style="font-size:14px">${esc(d.text)}</p></div>` : ''}
   <div class="row" style="gap:8px"><span style="color:var(--blue)">${ICONS.spark}</span><span style="font-size:13px;font-weight:600;color:var(--blue)">${d.confident ? 'AI identified the issue and department. You can only correct the location.' : 'The AI needs a bit more to identify this.'}</span></div>
   ${triage}
@@ -397,7 +405,11 @@ function sortedPosts() {
   if (state.sort === 'trending') ps.sort((a, b) => score(b) - score(a));
   if (state.sort === 'supported') ps.sort((a, b) => (b.up - b.down) - (a.up - a.down));
   if (state.sort === 'recent') ps.sort((a, b) => new Date(b.at) - new Date(a.at));
-  if (state.sort === 'near') ps.sort((a, b) => ['mlk','paseo','su','art'].indexOf(a.building) - ['mlk','paseo','su','art'].indexOf(b.building));
+  if (state.sort === 'near') {
+    const here = bldgById('spx') || CAMPUS_CENTER;
+    const dist = (id) => { const b = bldgById(id); if (!b) return 1e9; return Math.hypot((b.lat - here.lat) * 111320, (b.lng - here.lng) * 111320 * Math.cos(here.lat * Math.PI / 180)); };
+    ps.sort((a, b) => dist(a.building) - dist(b.building));
+  }
   return ps;
 }
 
@@ -544,6 +556,32 @@ function startDraft(text, source, extra = {}) {
   state.draft = { text, source, type: c.type, building: c.building, autoBuilding: !!c.building, detail: c.detail, severity: c.severity, confident: c.confident, category: c.category, trust: c.trust, reasons: c.reasons, emergency: c.emergency, photo: null, ...extra };
   go('review');
   if (c.emergency) openEmergency();
+  refineWithAI(state.draft);
+}
+
+// Ask Gemini to look at the text and photo; apply its decision if it answers in time. Keyword result stays otherwise.
+let aiSeq = 0;
+async function refineWithAI(d) {
+  if (!AI.enabled() || !d) return;
+  const seq = ++aiSeq;
+  d.ai = 'thinking'; render();
+  const r = await AI.triage({ text: d.text, photo: d.photo });
+  if (seq !== aiSeq || state.draft !== d) return;        // a newer draft replaced this one
+  if (!r) { d.ai = 'off'; d.aiError = AI.lastError; render(); return; }
+  const wasEmergency = d.emergency;
+  d.ai = 'done'; d.aiModel = r.model; d.aiConfidence = r.confidence;
+  d.category = r.category; d.severity = r.severity; d.emergency = r.emergency;
+  if (r.type !== 'other' || !d.confident) { d.type = r.type; }
+  d.confident = d.type !== 'other';
+  if (!d.building && r.building) { d.building = r.building; d.autoBuilding = true; }
+  if (!d.detail && r.detail) d.detail = r.detail;
+  if (r.description) d.seeDesc = r.description;
+  if (!r.genuine) { d.trust = 'review'; if (!d.reasons.includes('AI could not verify this is a real report')) d.reasons = [...d.reasons, 'AI could not verify this is a real report']; }
+  else if (d.trust === 'review' && r.confidence >= 0.7 && d.text && d.text.trim().split(/\s+/).length >= 3) { d.trust = 'ok'; d.reasons = []; }
+  render();
+  if (d.emergency && !wasEmergency) openEmergency();
+  if (d.photo || speech.on || speech.assist) { const was = speech.on; speech.on = true; speak((r.description ? r.description + ' ' : '') + `Filed as ${typeById(d.type).label}, ${CATEGORY[d.category].label}.`); speech.on = was; }
+  if (d.severity === 'high' || d.severity === 'critical') buzz([120, 60, 120]);
 }
 
 // Spoken phrases that carry an intent hint before the description.
@@ -586,6 +624,21 @@ function loudAlert(text) {
   } catch (e) { /* no audio */ }
   if ('speechSynthesis' in window) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance('Campus alert. ' + text); u.rate = 1; u.volume = 1; setTimeout(() => speechSynthesis.speak(u), 1100); } catch (e) { /* ignore */ } }
   if (navigator.vibrate) { try { navigator.vibrate([300, 150, 300, 150, 600]); } catch (e) { /* ignore */ } }
+}
+
+function openDemoOptions() {
+  buzz(40);
+  sheet(`
+    <div class="stack" style="gap:4px"><h2 style="font-size:18px">Demo options</h2><span class="muted">AI: ${AI.enabled() ? 'Gemini on' : 'off (keyword classifier)'} · Map: ${MapKit.current() || 'loading'}</span></div>
+    <div class="stack" style="gap:8px">
+      <button class="btn primary big" data-demo="reset">Reset to fresh demo state</button>
+      <button class="btn ghost big" data-demo="alert">Fire a sample campus alert</button>
+    </div>`);
+  $('#sheet').querySelectorAll('[data-demo]').forEach((b) => b.addEventListener('click', () => {
+    closeSheet();
+    if (b.dataset.demo === 'reset') { try { ['mpulse-campus', 'eaiser-campus', 'eaiser-map'].forEach((k) => localStorage.removeItem(k)); } catch (e) { /* ignore */ } location.reload(); }
+    if (b.dataset.demo === 'alert') { const a = state.alerts.find((x) => x.status === 'pending'); if (a) staffVerifyAlert(a.id); else loudAlert('Test alert. This is what a verified hazard sounds like.'); }
+  }));
 }
 
 function openEmergency() {
@@ -916,6 +969,7 @@ function bind() {
     const c = classify(text);
     Object.assign(d, { text, type: c.type, severity: c.severity, confident: c.confident, category: c.category, trust: c.trust, reasons: c.reasons, emergency: c.emergency, building: d.building || c.building, autoBuilding: d.building ? d.autoBuilding : !!c.building, detail: d.detail || c.detail });
     render(); speak(c.confident ? `Got it. ${typeById(c.type).label}, ${CATEGORY[c.category].label}.` : 'Still not sure. Add where it is and what is wrong.');
+    refineWithAI(d);
   });
   const bldg = $('#bldg');
   if (bldg) bldg.addEventListener('change', () => { state.draft.building = bldg.value || null; state.draft.autoBuilding = false; render(); });
@@ -939,6 +993,14 @@ function bind() {
     if (speech.assist) speak('Assist mode on. Hold the big button and say what is wrong. You can also say: report this problem, alert students about this, suggest an improvement, or what am I seeing.');
     else toast('Assist mode off');
   }));
+  const seal = $('#seal-btn');
+  if (seal) {
+    let t = null;
+    const down = () => { t = setTimeout(openDemoOptions, 900); };
+    const up = () => { clearTimeout(t); };
+    seal.addEventListener('pointerdown', down); seal.addEventListener('pointerup', up); seal.addEventListener('pointerleave', up); seal.addEventListener('pointercancel', up);
+    seal.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
   el.querySelectorAll('[data-act="read-alerts"]').forEach((b) => b.addEventListener('click', () => runCommand({ cmd: 'alerts' })));
   el.querySelectorAll('[data-act="read-near"]').forEach((b) => b.addEventListener('click', () => runCommand({ cmd: 'near' })));
   el.querySelectorAll('[data-act="see"]').forEach((b) => b.addEventListener('click', () => { state.pendingSee = true; $('#photo-input').click(); }));
@@ -1007,19 +1069,13 @@ $('#photo-input').addEventListener('change', (e) => {
   if (!f) return;
   const r = new FileReader();
   r.onload = () => {
-    if (state.pendingSee) {
-      state.pendingSee = false;
-      // Demo stand-in for a vision model: a fixed description, clearly labelled.
-      const desc = 'Demo description: a concrete ramp with a wide crack across it and a scooter lying on its side at the top. Possible hazard for wheelchair users.';
-      startDraft('Blocked ramp with a crack at the Student Union east entrance', 'photo', { photo: r.result, seeDesc: desc, hint: state.pendingHint || undefined });
-      state.pendingHint = null;
-      const was = speech.on; speech.on = true; speak(desc + ' I filed this as ' + CATEGORY[state.draft.category].label + '. Review it and say submit, or tap the button at the bottom.'); speech.on = was;
-      if (state.draft.severity === 'high' || state.draft.severity === 'critical') { buzz([200, 100, 200]); }
-      return;
-    }
+    const see = state.pendingSee; state.pendingSee = false;
     if (!state.draft) state.draft = { text: '', source: 'photo', type: 'other', building: null, detail: '', severity: 'low', confident: false, category: 'fix', trust: 'ok', reasons: [], hint: state.pendingHint || undefined };
     state.pendingHint = null;
-    state.draft.photo = r.result; state.draft.source = 'photo'; render();
+    state.draft.photo = r.result; state.draft.source = 'photo';
+    if (state.view !== 'review') go('review'); else render();
+    if (AI.enabled()) { if (see) { const was = speech.on; speech.on = true; speak('Looking at the photo.'); speech.on = was; } refineWithAI(state.draft); }
+    else if (see) { const was = speech.on; speech.on = true; speak('Photo attached. Describe what is wrong, and I will file it.'); speech.on = was; }
   };
   r.readAsDataURL(f);
   e.target.value = '';
