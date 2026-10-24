@@ -7,7 +7,7 @@ const AI = (() => {
   // The Gemini key is never committed. It is entered once on the device (hold the seal → Demo options) and kept in localStorage.
   const key = () => { try { return localStorage.getItem('mpulse-gemini-key') || (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } catch (e) { return (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } };
   const setKey = (k) => { try { if (k) localStorage.setItem('mpulse-gemini-key', k.trim()); else localStorage.removeItem('mpulse-gemini-key'); } catch (e) { /* ignore */ } };
-  const enabled = () => !!key() && (typeof CONFIG === 'undefined' || CONFIG.AI !== false);
+  const enabled = () => (typeof CONFIG !== 'undefined' && CONFIG.AI === true) && !!key();
 
   function prompt() {
     const types = ISSUE_TYPES.map((t) => `${t.id}: ${t.label}`).join('; ');
