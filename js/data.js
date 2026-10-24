@@ -31,7 +31,7 @@ const ISSUE_TYPES = [
 // x,y,w,h: position on the schematic fallback map (0–100).
 const CAMPUS_CENTER = { lat: 37.3352, lng: -121.8811 };
 const BUILDINGS = [
-  { id: 'mlk',  name: 'MLK Library',               abbr: 'MLK', lat: 37.335482, lng: -121.885000, x: 10, y: 12, w: 16, h: 14, kw: ['mlk', 'library', 'king library'] },
+  { id: 'mlk',  name: 'MLK Library',               abbr: 'MLK', lat: 37.335431, lng: -121.884701, x: 10, y: 12, w: 16, h: 14, kw: ['mlk', 'library', 'king library'] },
   { id: 'dmh',  name: 'Dudley Moorhead Hall (DMH/IRC)', abbr: 'DMH', lat: 37.336355, lng: -121.883938, x: 10, y: 32, w: 14, h: 10, kw: ['dudley', 'dmh', 'moorhead', 'irc', 'instructional resource'] },
   { id: 'cb2',  name: 'Clark Hall (CB2)',          abbr: 'CL',  lat: 37.335915, lng: -121.882547, x: 12, y: 50, w: 13, h: 12, kw: ['clark', 'cb2', 'cb 2'] },
   { id: 'dh',   name: 'Duncan Hall',               abbr: 'DH',  lat: 37.332311, lng: -121.881833, x: 12, y: 74, w: 16, h: 12, kw: ['duncan'] },
