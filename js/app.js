@@ -1091,6 +1091,7 @@ $('#photo-input').addEventListener('change', (e) => {
 });
 
 load();
+AI.warm();
 try { if (localStorage.getItem('eaiser-assist') === '1') { speech.assist = true; speech.on = true; document.body.classList.add('assist'); } } catch (e) { /* ignore */ }
 // Hardware launch: a phone shortcut (Back Tap, Action Button, Quick Tap) opens the app at #assist and lands in voice-first mode.
 const launchAssist = (/[#&?]assist/.test(location.hash) || /[?&]assist=1/.test(location.search));

@@ -48,15 +48,18 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
     });
   }
 
-  async function call(model, parts, ctrl) {
+  async function call(model, parts, ctrl, noThink = false) {
     try {
-      const body = { contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json' } };
+      const gen = { temperature: 0.1, responseMimeType: 'application/json', maxOutputTokens: 300 };
+      if (!noThink) gen.thinkingConfig = { thinkingBudget: 0 };   // no "thinking" pass: this is a classification, speed matters more
+      const body = { contents: [{ role: 'user', parts }], generationConfig: gen };
       const p = proxy();
       const res = p
         ? await fetch(p, { method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model, body }) })
         : await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
             method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key() }, body: JSON.stringify(body),
           });
+      if (res.status === 400 && !noThink) return call(model, parts, ctrl, true);   // model rejected thinkingConfig → plain retry
       if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 200));
       const data = await res.json();
       const txt = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
@@ -110,5 +113,9 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
     return null;
   }
 
-  return { triage, enabled, setKey, hasKey: () => !!key() || !!proxy(), lastError: null };
+  function warm() {
+    try { const p = proxy(); if (p) fetch(p, { method: 'OPTIONS' }).catch(() => {}); } catch (e) { /* ignore */ }
+  }
+
+  return { triage, enabled, setKey, warm, hasKey: () => !!key() || !!proxy(), lastError: null };
 })();
