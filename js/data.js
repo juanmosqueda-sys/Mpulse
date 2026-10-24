@@ -62,6 +62,7 @@ const BUILDINGS = [
   { id: 'cv2',  name: 'Campus Village 2',          abbr: 'CV2', lat: 37.335016, lng: -121.878670, x: 78, y: 66, w: 8, h: 8, kw: ['campus village 2', 'cv2'] },
   { id: 'mus',  name: 'Music Building',            abbr: 'MUS', lat: 37.335691, lng: -121.880791, x: 56, y: 36, w: 10, h: 8, kw: ['music building', 'music', 'concert hall'] },
   { id: 'hb',   name: 'Health Building (Nursing)', abbr: 'HB',  lat: 37.335804, lng: -121.879150, x: 70, y: 44, w: 10, h: 8, kw: ['health building', 'nursing', ' hb '] },
+  { id: 'cp',   name: 'Central Plant',             abbr: 'CP',  lat: 37.336171, lng: -121.878513, x: 80, y: 40, w: 8, h: 8, kw: ['central plant', 'boiler', 'chiller', 'steam'] },
   { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', lat: 37.334435, lng: -121.880655, x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
 ];
 
