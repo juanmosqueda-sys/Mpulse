@@ -94,7 +94,7 @@ Tap the speaker icon in the header, or open the app at `index.html#assist`. High
 
 ## Demo limitations
 
-- **Voice**: browsers refuse the microphone inside the hosted preview, so hold-to-talk inserts a sample transcript. Wire `voiceEnd()` to the Web Speech API or a transcription endpoint for a real build.
+- **Voice**: hold-to-talk uses the browser's Web Speech API (Safari 14.5+, Chrome, Edge) over HTTPS. The first use asks for microphone permission. Where the API is missing or the mic is blocked, it falls back to a labelled sample transcript so the demo still runs.
 - **Photo**: the camera opens and the photo attaches, but classification is from text and the type chips, not the image. Location comes from the map tap, not photo GPS. Hook `classify()` to a vision model and read EXIF GPS for the real version.
 - **Verification**: any `@sjsu.edu` address verifies instantly. Replace with SSO.
 - **Department updates**: the "post as department" form on a post is a demo stand-in for a department login.

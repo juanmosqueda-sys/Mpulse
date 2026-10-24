@@ -61,8 +61,9 @@ function classify(text) {
     if (b.kw.some((k) => t.includes(k))) { building = b; break; }
   }
   let detail = '';
-  const floor = t.match(/(\d+)(?:st|nd|rd|th)\s*floor/);
-  if (floor) detail = `${floor[1]}${['st','nd','rd'][floor[1]-1] || 'th'} floor`;
+  const ORD = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10, ground: 1 };
+  const floor = t.match(/(\d+)(?:st|nd|rd|th)?\s*floor/) || t.match(/\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|ground)\s*floor/);
+  if (floor) { const n = ORD[floor[1]] || parseInt(floor[1], 10); detail = `${n}${['st','nd','rd'][n-1] || 'th'} floor`; }
   const room = t.match(/\broom\s*(\w+)/);
   if (room) detail = (detail ? detail + ', ' : '') + 'room ' + room[1].toUpperCase();
   // --- triage: the AI, not the reporter, decides the category ---
@@ -323,7 +324,7 @@ function Review() {
     : d.source === 'photo'
       ? `<div class="photo" style="flex-direction:column;gap:8px"><span style="opacity:.9;font-size:12px;font-weight:600">No photo yet</span><button type="button" class="retake" data-act="retake" style="position:static">Open camera</button></div>`
       : '';
-  const srcLabel = { text: 'Typed', voice: 'Voice transcript', photo: 'Photo' }[d.source];
+  const srcLabel = ({ text: 'Typed', voice: d.sample ? 'Sample transcript (mic unavailable)' : 'Voice transcript', photo: 'Photo' })[d.source];
   const cat = CATEGORY[d.category];
   const hintNote = d.hint && d.hint !== d.category ? `<span class="muted small">You said "${esc(CATEGORY[d.hint].short.toLowerCase())}". The AI filed it as ${esc(cat.short.toLowerCase())} instead, based on what you described.</span>` : '';
   const triage = `<div class="card pad stack triage ${cat.tone}" style="gap:6px">
@@ -758,35 +759,68 @@ function openNewPost() {
 
 // voice: this runs inside a sandbox that refuses the microphone, so the demo transcribes a sample.
 let holdTimer = null;
+// Real speech recognition where the browser offers it (Safari 14.5+, Chrome, Edge). Needs HTTPS and a mic permission.
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+const rec = { obj: null, finalText: '', interim: '', active: false, failed: false };
 function voiceStart(btn) {
   btn.classList.add('listening');
   $('.t', btn).textContent = 'Listening…';
-  $('.s', btn).textContent = 'Release to send';
+  $('.s', btn).textContent = SR ? 'Release when you\'re done' : 'Release to send';
   holdTimer = Date.now();
+  rec.finalText = ''; rec.interim = ''; rec.active = false; rec.failed = false;
+  if (!SR) return;
+  try {
+    const r = new SR(); rec.obj = r;
+    r.lang = 'en-US'; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+    r.onresult = (e) => {
+      let fin = '', inter = '';
+      for (let i = 0; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) fin += t + ' '; else inter += t; }
+      rec.finalText = fin.trim(); rec.interim = inter.trim();
+      const shown = (rec.finalText + ' ' + rec.interim).trim();
+      if (shown) $('.s', btn).textContent = '“' + shown + '”';
+    };
+    r.onerror = (e) => { rec.failed = true; rec.err = e.error; };
+    r.onend = () => { rec.active = false; if (rec.pendingFinish) { rec.pendingFinish = false; finishVoice(btn); } };
+    r.start(); rec.active = true;
+  } catch (e) { rec.failed = true; rec.err = String(e); }
 }
 function voiceEnd(btn) {
   if (!btn.classList.contains('listening')) return;
   btn.classList.remove('listening');
   const held = (Date.now() - holdTimer) / 1000;
   $('.t', btn).textContent = 'Hold to talk';
+  if (held < 0.4) { $('.s', btn).textContent = "Say what's wrong and where. We transcribe and route it."; try { rec.obj && rec.obj.abort(); } catch (e) { /* ignore */ } toast('Hold the button while you talk'); return; }
+  if (SR && rec.obj && rec.active && !rec.failed) {
+    $('.s', btn).textContent = 'Transcribing…';
+    rec.pendingFinish = true;
+    try { rec.obj.stop(); } catch (e) { rec.pendingFinish = false; finishVoice(btn); }
+    setTimeout(() => { if (rec.pendingFinish) { rec.pendingFinish = false; finishVoice(btn); } }, 2500);
+    return;
+  }
+  finishVoice(btn);
+}
+function finishVoice(btn) {
+  const held = (Date.now() - holdTimer) / 1000;
   $('.s', btn).textContent = "Say what's wrong and where. We transcribe and route it.";
-  if (held < 0.4) { toast('Hold the button while you talk'); return; }
+  const heard = (rec.finalText || rec.interim || '').trim();
+  buzz(30);
+  if (heard) { handleUtterance(heard, 'voice', { seconds: Math.max(1, Math.round(held)) }); return; }
+  if (SR && !rec.failed) { toast("Didn't catch that. Hold the button and speak, then release."); speak("I didn't catch that. Try again."); return; }
+  // No speech API (or mic denied): fall back to a sample so the demo still works, and say so.
+  const why = rec.err === 'not-allowed' || rec.err === 'service-not-allowed' ? 'Microphone blocked' : 'No speech recognition in this browser';
+  toast(why + ' · using a sample sentence');
   const samples = speech.assist ? [
     'Report this problem. The ramp at the Student Union east entrance is blocked by a scooter pile',
     'Alert students about this. There is water flooding the second floor hallway of Washburn Hall',
     'Suggest an improvement. The library should keep the 6th floor open until midnight during finals',
     'What are the alerts',
-    'The elevator in Clark Hall is out again, second floor',
   ] : [
     'The elevator in Clark Hall is out again, second floor',
     'None of the outlets on the 6th floor of the library work',
-    'Printer on the first floor of Engineering has no toner',
     'There is water flooding the second floor hallway of Washburn Hall',
     'Go to my reports',
   ];
-  const text = samples[Math.floor(Math.random() * samples.length)];
-  buzz(30);
-  handleUtterance(text, 'voice', { seconds: Math.max(3, Math.round(held)) });
+  handleUtterance(samples[Math.floor(Math.random() * samples.length)], 'voice', { seconds: Math.max(3, Math.round(held)), sample: true });
 }
 
 function sheet(html) {
