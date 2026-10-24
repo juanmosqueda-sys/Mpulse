@@ -32,7 +32,7 @@ const ISSUE_TYPES = [
 const CAMPUS_CENTER = { lat: 37.3352, lng: -121.8811 };
 const BUILDINGS = [
   { id: 'mlk',  name: 'MLK Library',               abbr: 'MLK', lat: 37.335482, lng: -121.885000, x: 10, y: 12, w: 16, h: 14, kw: ['mlk', 'library', 'king library'] },
-  { id: 'dmh',  name: 'Dudley Moorhead Hall',      abbr: 'DMH', lat: 37.334700, lng: -121.883800, x: 10, y: 32, w: 14, h: 10, kw: ['dudley', 'dmh', 'moorhead'] },
+  { id: 'dmh',  name: 'Dudley Moorhead Hall',      abbr: 'DMH', lat: 37.336355, lng: -121.883938, x: 10, y: 32, w: 14, h: 10, kw: ['dudley', 'dmh', 'moorhead'] },
   { id: 'cb2',  name: 'Clark Hall (CB2)',          abbr: 'CL',  lat: 37.335915, lng: -121.882547, x: 12, y: 50, w: 13, h: 12, kw: ['clark', 'cb2', 'cb 2'] },
   { id: 'dh',   name: 'Duncan Hall',               abbr: 'DH',  lat: 37.332311, lng: -121.881833, x: 12, y: 74, w: 16, h: 12, kw: ['duncan'] },
   { id: 'sci',  name: 'Science Building',          abbr: 'SCI', lat: 37.334659, lng: -121.884706, x: 30, y: 36, w: 12, h: 10, kw: ['science building', 'science '] },
