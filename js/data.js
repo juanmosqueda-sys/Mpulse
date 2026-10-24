@@ -64,6 +64,7 @@ const BUILDINGS = [
   { id: 'hb',   name: 'Health Building (Nursing)', abbr: 'HB',  lat: 37.335804, lng: -121.879150, x: 70, y: 44, w: 10, h: 8, kw: ['health building', 'nursing', ' hb '] },
   { id: 'cp',   name: 'Central Plant',             abbr: 'CP',  lat: 37.336171, lng: -121.878513, x: 80, y: 40, w: 8, h: 8, kw: ['central plant', 'boiler', 'chiller', 'steam'] },
   { id: 'bt',   name: 'Business Tower',            abbr: 'BT',  lat: 37.337118, lng: -121.878978, x: 82, y: 22, w: 8, h: 8, kw: ['business tower', ' bt '] },
+  { id: 'lot4', name: 'Lot 4',                     abbr: 'L4',  lat: 37.337711, lng: -121.879669, x: 76, y: 10, w: 10, h: 8, kw: ['lot 4', 'lot4'] },
   { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', lat: 37.334435, lng: -121.880655, x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
 ];
 
