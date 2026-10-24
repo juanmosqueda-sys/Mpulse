@@ -50,6 +50,7 @@ const BUILDINGS = [
   { id: 'hb',   name: 'Health Building',            abbr: 'HB',  lat: 37.335820, lng: -121.879134, x: 70, y: 44, w: 10, h: 8, kw: ['health building', 'health center'] },
   { id: 'ec',   name: 'Event Center',               abbr: 'EC',  lat: 37.335219, lng: -121.880100, x: 60, y: 50, w: 12, h: 8, kw: ['event center'] },
   { id: 'tower',name: 'Tower Hall',                 abbr: 'TH',  lat: 37.335294, lng: -121.883469, x: 20, y: 40, w: 8, h: 8, kw: ['tower hall', 'tower'] },
+  { id: 'admin',name: 'Administration Building',   abbr: 'ADM', lat: 37.336665, lng: -121.882837, x: 26, y: 28, w: 10, h: 8, kw: ['admin', 'administration', 'registrar', 'bursar', 'financial aid'] },
   { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', lat: 37.334435, lng: -121.880655, x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
 ];
 
