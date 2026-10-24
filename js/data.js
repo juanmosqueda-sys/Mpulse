@@ -51,7 +51,7 @@ const BUILDINGS = [
   { id: 'swc',  name: 'Student Wellness Center',    abbr: 'SWC', lat: 37.334711, lng: -121.881280, x: 60, y: 44, w: 10, h: 8, kw: ['wellness', 'health center', 'swc', 'counseling'] },
   { id: 'ec',   name: 'Event Center',               abbr: 'EC',  lat: 37.335311, lng: -121.880044, x: 60, y: 50, w: 12, h: 8, kw: ['event center'] },
   { id: 'tower',name: 'Tower Hall',                 abbr: 'TH',  lat: 37.335294, lng: -121.883469, x: 20, y: 40, w: 8, h: 8, kw: ['tower hall', 'tower'] },
-  { id: 'admin',name: 'Administration Building',   abbr: 'ADM', lat: 37.336665, lng: -121.882837, x: 26, y: 28, w: 10, h: 8, kw: ['admin', 'administration', 'registrar', 'bursar', 'financial aid'] },
+  { id: 'admin',name: 'Administration Building',   abbr: 'ADM', lat: 37.336583, lng: -121.882844, x: 26, y: 28, w: 10, h: 8, kw: ['admin', 'administration', 'registrar', 'bursar', 'financial aid'] },
   { id: 'wpg',  name: 'West Parking Garage',       abbr: 'WPG', lat: 37.332521, lng: -121.883024, x: 6, y: 84, w: 12, h: 10, kw: ['west garage', 'west parking', 'wpg', 'parking garage'] },
   { id: 'mh',   name: 'MacQuarrie Hall',           abbr: 'MH',  lat: 37.333546, lng: -121.881835, x: 40, y: 62, w: 10, h: 8, kw: ['macquarrie', 'mh ', 'cs department'] },
   { id: 'spg',  name: 'South Parking Garage',      abbr: 'SPG', lat: 37.332822, lng: -121.881015, x: 44, y: 76, w: 16, h: 10, kw: ['south garage', 'south parking', 'spg'] },
