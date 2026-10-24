@@ -154,6 +154,7 @@ function render() {
   el.scrollTop = 0;
   window.scrollTo(0, 0);
   const v = state.view;
+  el.classList.toggle('has-footer', v === 'review');
   el.innerHTML = v === 'home' ? Home() : v === 'review' ? Review() : v === 'community' ? Community() : v === 'post' ? PostDetail() : Mine();
   document.querySelectorAll('.tab').forEach((t) => {
     const cur = t.dataset.go === v || (v === 'post' && t.dataset.go === 'community') || (v === 'review' && t.dataset.go === 'snap' && state.draft?.source === 'photo');

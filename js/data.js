@@ -27,23 +27,30 @@ const ISSUE_TYPES = [
   { id: 'other',    label: 'Other',      dept: 'fdo',     severity: 'low',    kw: [] },
 ];
 
-// lat/lng: approximate building centroids on the SJSU main campus (verify against the official campus map before production).
+// lat/lng from the Google Geocoding API (Oct 23, 2026). dmh, spx and cv were not resolvable and are placed by hand from the campus map; confirm those three.
 // x,y,w,h: position on the schematic fallback map (0–100).
 const CAMPUS_CENTER = { lat: 37.3352, lng: -121.8811 };
 const BUILDINGS = [
-  { id: 'mlk',  name: 'MLK Library',               abbr: 'MLK', lat: 37.3353, lng: -121.8853, x: 10, y: 12, w: 16, h: 14, kw: ['mlk', 'library', 'king library'] },
-  { id: 'dmh',  name: 'Dudley Moorhead Hall',      abbr: 'DMH', lat: 37.3343, lng: -121.8839, x: 10, y: 32, w: 14, h: 10, kw: ['dudley', 'dmh', 'moorhead'] },
-  { id: 'cb2',  name: 'Clark Hall (CB2)',          abbr: 'CL',  lat: 37.3358, lng: -121.8840, x: 12, y: 50, w: 13, h: 12, kw: ['clark', 'cb2', 'cb 2'] },
-  { id: 'dh',   name: 'Duncan Hall',               abbr: 'DH',  lat: 37.3331, lng: -121.8821, x: 12, y: 74, w: 16, h: 12, kw: ['duncan'] },
-  { id: 'sci',  name: 'Science Building',          abbr: 'SCI', lat: 37.3336, lng: -121.8829, x: 30, y: 36, w: 12, h: 10, kw: ['science building', 'science '] },
-  { id: 'sh',   name: 'Sweeney Hall',              abbr: 'SH',  lat: 37.3340, lng: -121.8817, x: 32, y: 58, w: 12, h: 10, kw: ['sweeney'] },
-  { id: 'su',   name: 'Student Union',             abbr: 'SU',  lat: 37.3362, lng: -121.8808, x: 48, y: 28, w: 16, h: 14, kw: ['student union', 'union'] },
-  { id: 'eng',  name: 'Engineering Building',      abbr: 'ENG', lat: 37.3374, lng: -121.8812, x: 68, y: 10, w: 18, h: 16, kw: ['engineering', 'eng building', 'eng '] },
-  { id: 'art',  name: 'Art Building',              abbr: 'ART', lat: 37.3360, lng: -121.8787, x: 52, y: 66, w: 14, h: 12, kw: ['art building', 'art '] },
-  { id: 'spx',  name: 'Spartan Complex (SPX)',     abbr: 'SPX', lat: 37.3334, lng: -121.8796, x: 30, y: 84, w: 22, h: 10, kw: ['spx', 'spartan complex'] },
-  { id: 'wsq',  name: 'Washburn Hall',             abbr: 'WSH', lat: 37.3355, lng: -121.8773, x: 80, y: 52, w: 12, h: 10, kw: ['washburn'] },
-  { id: 'cv',   name: 'Campus Village',            abbr: 'CV',  lat: 37.3335, lng: -121.8780, x: 72, y: 72, w: 20, h: 18, kw: ['campus village', 'cvb', 'cva', 'cvc'] },
-  { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', lat: 37.3352, lng: -121.8812, x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
+  { id: 'mlk',  name: 'MLK Library',               abbr: 'MLK', lat: 37.335482, lng: -121.885000, x: 10, y: 12, w: 16, h: 14, kw: ['mlk', 'library', 'king library'] },
+  { id: 'dmh',  name: 'Dudley Moorhead Hall',      abbr: 'DMH', lat: 37.334700, lng: -121.883800, x: 10, y: 32, w: 14, h: 10, kw: ['dudley', 'dmh', 'moorhead'] },
+  { id: 'cb2',  name: 'Clark Hall (CB2)',          abbr: 'CL',  lat: 37.335915, lng: -121.882547, x: 12, y: 50, w: 13, h: 12, kw: ['clark', 'cb2', 'cb 2'] },
+  { id: 'dh',   name: 'Duncan Hall',               abbr: 'DH',  lat: 37.332311, lng: -121.881833, x: 12, y: 74, w: 16, h: 12, kw: ['duncan'] },
+  { id: 'sci',  name: 'Science Building',          abbr: 'SCI', lat: 37.334659, lng: -121.884706, x: 30, y: 36, w: 12, h: 10, kw: ['science building', 'science '] },
+  { id: 'sh',   name: 'Sweeney Hall',              abbr: 'SH',  lat: 37.333956, lng: -121.881083, x: 32, y: 58, w: 12, h: 10, kw: ['sweeney'] },
+  { id: 'su',   name: 'Student Union',             abbr: 'SU',  lat: 37.336128, lng: -121.881477, x: 48, y: 28, w: 16, h: 14, kw: ['student union', 'union'] },
+  { id: 'eng',  name: 'Engineering Building',      abbr: 'ENG', lat: 37.336825, lng: -121.881132, x: 68, y: 10, w: 18, h: 16, kw: ['engineering', 'eng building', 'eng '] },
+  { id: 'art',  name: 'Art Building',              abbr: 'ART', lat: 37.335949, lng: -121.879799, x: 52, y: 66, w: 14, h: 12, kw: ['art building', 'art '] },
+  { id: 'spx',  name: 'Spartan Complex (SPX)',     abbr: 'SPX', lat: 37.333600, lng: -121.882100, x: 30, y: 84, w: 22, h: 10, kw: ['spx', 'spartan complex'] },
+  { id: 'wsq',  name: 'Washburn Hall',             abbr: 'WSH', lat: 37.333650, lng: -121.879342, x: 80, y: 52, w: 12, h: 10, kw: ['washburn'] },
+  { id: 'cv',   name: 'Campus Village',            abbr: 'CV',  lat: 37.333400, lng: -121.877500, x: 72, y: 72, w: 20, h: 18, kw: ['campus village', 'cvb', 'cva', 'cvc'] },
+  { id: 'hgh',  name: 'Hugh Gillis Hall',           abbr: 'HGH', lat: 37.336006, lng: -121.884455, x: 22, y: 20, w: 10, h: 8, kw: ['hugh gillis', 'hgh'] },
+  { id: 'yuh',  name: 'Yoshihiro Uchida Hall',      abbr: 'YUH', lat: 37.333513, lng: -121.883744, x: 10, y: 62, w: 12, h: 8, kw: ['uchida', 'yuh'] },
+  { id: 'bbc',  name: 'Boccardo Business Complex',  abbr: 'BBC', lat: 37.336442, lng: -121.878869, x: 76, y: 30, w: 14, h: 10, kw: ['boccardo', 'bbc', 'business'] },
+  { id: 'its',  name: 'Interdisciplinary Sciences', abbr: 'ISB', lat: 37.333087, lng: -121.882918, x: 24, y: 64, w: 10, h: 8, kw: ['interdisciplinary', 'isb'] },
+  { id: 'hb',   name: 'Health Building',            abbr: 'HB',  lat: 37.335820, lng: -121.879134, x: 70, y: 44, w: 10, h: 8, kw: ['health building', 'health center'] },
+  { id: 'ec',   name: 'Event Center',               abbr: 'EC',  lat: 37.335219, lng: -121.880100, x: 60, y: 50, w: 12, h: 8, kw: ['event center'] },
+  { id: 'tower',name: 'Tower Hall',                 abbr: 'TH',  lat: 37.335294, lng: -121.883469, x: 20, y: 40, w: 8, h: 8, kw: ['tower hall', 'tower'] },
+  { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', lat: 37.334435, lng: -121.880655, x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
 ];
 
 // Open clusters: existing reports other students already filed.
