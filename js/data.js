@@ -71,6 +71,7 @@ const BUILDINGS = [
   { id: 'is',   name: 'Industrial Studies (IS)',   abbr: 'IS',  lat: 37.337496, lng: -121.880939, x: 58, y: 12, w: 10, h: 8, kw: ['industrial studies', ' is ', 'engineering technology', 'manufacturing lab'] },
   { id: 'ccb',  name: 'Central Classroom Building', abbr: 'CCB', lat: 37.335661, lng: -121.881831, x: 40, y: 40, w: 10, h: 8, kw: ['central classroom', 'ccb'] },
   { id: 'mda',  name: 'Morris Dailey Auditorium',  abbr: 'MDA', lat: 37.335224, lng: -121.883215, x: 28, y: 44, w: 10, h: 8, kw: ['morris dailey', 'auditorium', 'mda'] },
+  { id: 'dbh',  name: 'Dwight Bentel Hall',        abbr: 'DBH', lat: 37.335143, lng: -121.882346, x: 34, y: 50, w: 10, h: 8, kw: ['dwight bentel', 'bentel', 'dbh', 'journalism'] },
   { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', lat: 37.334435, lng: -121.880655, x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
 ];
 
