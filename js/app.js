@@ -211,10 +211,10 @@ function describeDraft() {
 const toneFor = (status) => ({ submitted: 'blue', routed: 'blue', pending: 'gold', acknowledged: 'gold', assigned: 'gold', in_progress: 'gold', resolved: 'green', verified: 'green', announced: 'red', review: 'neutral', dismissed: 'neutral' }[status] || 'neutral');
 
 // ---------- views ----------
-function render() {
+function render(opts = {}) {
   const el = $('#view');
-  el.scrollTop = 0;
-  window.scrollTo(0, 0);
+  const keep = opts.keepScroll ? { el: el.scrollTop, win: window.scrollY } : null;   // in-place updates (e.g. a vote) must not jump to the top
+  if (!keep) { el.scrollTop = 0; window.scrollTo(0, 0); }
   const v = state.view;
   el.classList.toggle('has-footer', v === 'review');
   MapKit.preserve(el);   // keep live maps alive across the redraw
@@ -224,6 +224,7 @@ function render() {
     if (cur) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
   });
   bind();
+  if (keep) { el.scrollTop = keep.el; window.scrollTo(0, keep.win); }
   MapKit.mountAll((id) => { if (state.view === 'review' && state.draft) { state.draft.building = id; state.draft.autoBuilding = false; render(); speak(bldgById(id).name + ' selected'); } });
 }
 
@@ -718,7 +719,7 @@ function submitSuggestion() {
   const id = 'p' + Date.now();
   const b = d.building ? bldgById(d.building) : null;
   const tp = topicFor(d.text);
-  state.posts.unshift({ id, title: d.text.length > 80 ? d.text.slice(0, 77) + '…' : d.text, body: d.text.length > 80 ? d.text : '', category: tp.topic, kind: 'suggestion', building: d.building, up: 1, down: 0, comments: 0, at: now, dept: tp.dept, status: 'collecting', updates: [], aiRouted: true });
+  state.posts.unshift({ id, title: d.text.length > 80 ? d.text.slice(0, 77) + '…' : d.text, body: d.text.length > 80 ? d.text : '', category: tp.topic, kind: 'suggestion', building: d.building, up: 0, down: 0, comments: 0, at: now, dept: tp.dept, status: 'collecting', updates: [], aiRouted: true });
   state.votes[id] = 'up';
   state.draft = null; state.sort = 'recent'; save(); go('community');
   toast('Filed as a suggestion. Collecting support.'); speak(`Filed as a suggestion in Community${b ? ' for ' + b.name : ''}. It reaches staff at ${VOTE_THRESHOLD} votes.`);
@@ -785,7 +786,7 @@ function vote(id, dir) {
     p.status = 'review';
     toast(`Reached ${VOTE_THRESHOLD} votes. Routed to ${deptById(p.dept).short}.`);
   }
-  save(); render();
+  save(); render({ keepScroll: true });
 }
 
 function openVerify(then) {
@@ -827,7 +828,7 @@ function openNewPost() {
     const tp = topicFor(txt);
     const c = classify(txt);
     const id = 'p' + Date.now();
-    state.posts.unshift({ id, title: $('#np-title').value.trim(), body: $('#np-body').value.trim(), category: tp.topic, kind: c.category === 'suggestion' ? 'suggestion' : undefined, building: $('#np-bldg').value || c.building || null, up: 1, down: 0, comments: 0, at: new Date().toISOString(), dept: tp.dept, status: 'collecting', updates: [], aiRouted: true });
+    state.posts.unshift({ id, title: $('#np-title').value.trim(), body: $('#np-body').value.trim(), category: tp.topic, kind: c.category === 'suggestion' ? 'suggestion' : undefined, building: $('#np-bldg').value || c.building || null, up: 0, down: 0, comments: 0, at: new Date().toISOString(), dept: tp.dept, status: 'collecting', updates: [], aiRouted: true });
     state.votes[id] = 'up';
     save(); closeSheet(); state.sort = 'recent'; render(); toast('Posted. Collecting support.');
   });
