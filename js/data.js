@@ -37,7 +37,7 @@ const BUILDINGS = [
   { id: 'dh',   name: 'Duncan Hall',               abbr: 'DH',  lat: 37.332572, lng: -121.882062, x: 12, y: 74, w: 16, h: 12, kw: ['duncan'] },
   { id: 'sci',  name: 'Science Building (Old)',    abbr: 'SCI', lat: 37.334956, lng: -121.884954, x: 30, y: 36, w: 12, h: 10, kw: ['science building', 'science '] },
   { id: 'sh',   name: 'Sweeney Hall',              abbr: 'SH',  lat: 37.333766, lng: -121.881048, x: 32, y: 58, w: 12, h: 10, kw: ['sweeney'] },
-  { id: 'su',   name: 'Student Union',             abbr: 'SU',  lat: 37.336128, lng: -121.881477, x: 48, y: 28, w: 16, h: 14, kw: ['student union', 'union'] },
+  { id: 'su',   name: 'Student Union',             abbr: 'SU',  lat: 37.336586, lng: -121.880574, x: 48, y: 28, w: 16, h: 14, kw: ['student union', 'union'] },
   { id: 'eng',  name: 'Engineering Building',      abbr: 'ENG', lat: 37.336825, lng: -121.881132, x: 68, y: 10, w: 18, h: 16, kw: ['engineering', 'eng building', 'eng '] },
   { id: 'art',  name: 'Art & Design Building',     abbr: 'ART', lat: 37.335886, lng: -121.880097, x: 52, y: 66, w: 14, h: 12, kw: ['art building', 'art & design', 'art and design', 'art '] },
   { id: 'spx',  name: 'Spartan Complex (SPX)',     abbr: 'SPX', lat: 37.334253, lng: -121.882179, x: 30, y: 84, w: 22, h: 10, kw: ['spx', 'spartan complex'] },
