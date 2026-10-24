@@ -316,8 +316,12 @@ function Review() {
   const t = typeById(d.type), b = d.building ? bldgById(d.building) : null, dept = deptById(t.dept);
   const cluster = d.building ? findCluster(d.type, d.building) : null;
   const sev = d.severity;
-  const chips = ISSUE_TYPES.filter((x) => x.id !== 'other')
-    .map((x) => `<button type="button" class="chip" data-type="${x.id}" aria-pressed="${x.id === d.type}">${esc(x.label)}</button>`).join('');
+  const typeBlock = d.confident
+    ? `<div class="row between"><div><div class="eyebrow">Issue type</div><div style="font-size:14px;font-weight:600">${esc(t.label)}</div></div><span class="pill blue">AI</span></div>`
+    : `<div class="stack" style="gap:6px"><div class="row between"><div><div class="eyebrow">Issue type</div><div style="font-size:14px;font-weight:600;color:var(--gold-text)">Not sure yet</div></div><span class="pill gold">Needs detail</span></div>
+       <label class="eyebrow" for="more-detail">Tell the AI more</label>
+       <input class="field" id="more-detail" placeholder="e.g. the elevator door won't close" value="">
+       <span class="muted small">It re-reads your description and picks the type and department itself.</span></div>`;
   const bOpts = `<option value="">Choose a building…</option>` + BUILDINGS.map((x) => `<option value="${x.id}" ${x.id === d.building ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
   const photo = d.photo
     ? `<div class="photo"><img src="${d.photo}" alt="Your photo of the issue"><span class="cap">Photo attached</span><button type="button" class="retake" data-act="retake">Retake</button></div>`
@@ -347,10 +351,10 @@ function Review() {
   ${photo}
   ${d.seeDesc ? `<div class="card pad stack" style="gap:4px;border-color:var(--blue)"><span class="eyebrow blue">What the AI sees</span><p style="font-size:14px">${esc(d.seeDesc)}</p></div>` : ''}
   ${d.text ? `<div class="card pad stack" style="gap:4px"><span class="eyebrow">${esc(srcLabel)}</span><p style="font-size:14px">${esc(d.text)}</p></div>` : ''}
-  <div class="row" style="gap:8px"><span style="color:var(--blue)">${ICONS.spark}</span><span style="font-size:13px;font-weight:600;color:var(--blue)">${d.confident ? 'AI filled the details. Tap anything to change it.' : 'Tell us the type and building so we can route it.'}</span></div>
+  <div class="row" style="gap:8px"><span style="color:var(--blue)">${ICONS.spark}</span><span style="font-size:13px;font-weight:600;color:var(--blue)">${d.confident ? 'AI identified the issue and department. You can only correct the location.' : 'The AI needs a bit more to identify this.'}</span></div>
   ${triage}
   <div class="card pad stack">
-    <div class="stack" style="gap:8px"><span class="eyebrow">Issue type</span><div class="chips">${chips}</div></div>
+    ${typeBlock}
     <div class="hr"></div>
     <div class="stack" style="gap:8px">
       <div class="row between"><span class="eyebrow">Location</span>${d.building && d.autoBuilding ? `<span class="pill green">${d.source === 'photo' ? 'From photo GPS' : 'Matched from text'}</span>` : d.building ? '' : '<span class="pill gold">Tap a building</span>'}</div>
@@ -375,7 +379,7 @@ function Review() {
   <div class="footer-cta">
     <div class="row" style="gap:8px">
       <button class="btn ghost" style="height:54px;border-radius:16px;padding:0 14px" data-act="readback" aria-label="Read this report back to me">${ICONS.speaker}</button>
-      <button class="btn primary big" id="submit-report" ${d.building || d.category === 'suggestion' || d.trust === 'review' ? '' : 'disabled'}>${d.trust === 'review' ? 'Submit for review' : d.category === 'alert' ? 'Submit alert' : d.category === 'suggestion' ? 'Post suggestion' : 'Submit work order'} ${ICONS.arrow}</button>
+      <button class="btn primary big" id="submit-report" ${(d.building && (d.confident || d.category !== 'fix')) || d.category === 'suggestion' || d.trust === 'review' ? '' : 'disabled'}>${d.trust === 'review' ? 'Submit for review' : d.category === 'alert' ? 'Submit alert' : d.category === 'suggestion' ? 'Post suggestion' : 'Submit work order'} ${ICONS.arrow}</button>
     </div>
     <span class="muted" style="text-align:center;font-size:11px">Prototype privacy note: your name is intended to be shared only with the department, never with other students.</span>
   </div>`;
@@ -872,7 +876,14 @@ function bind() {
     startDraft(`${clusterTitle(c)} at ${bldgById(c.building).name}`, 'text', { type: c.type, building: c.building, detail: c.detail, autoBuilding: true, confident: true, severity: typeById(c.type).severity });
   }));
 
-  el.querySelectorAll('[data-type]').forEach((b) => b.addEventListener('click', () => { state.draft.type = b.dataset.type; state.draft.severity = typeById(b.dataset.type).severity; render(); }));
+  const more = $('#more-detail');
+  if (more) more.addEventListener('change', () => {
+    const extra = more.value.trim(); if (!extra) return;
+    const d = state.draft; const text = (d.text ? d.text + '. ' : '') + extra;
+    const c = classify(text);
+    Object.assign(d, { text, type: c.type, severity: c.severity, confident: c.confident, category: c.category, trust: c.trust, reasons: c.reasons, emergency: c.emergency, building: d.building || c.building, autoBuilding: d.building ? d.autoBuilding : !!c.building, detail: d.detail || c.detail });
+    render(); speak(c.confident ? `Got it. ${typeById(c.type).label}, ${CATEGORY[c.category].label}.` : 'Still not sure. Add where it is and what is wrong.');
+  });
   const bldg = $('#bldg');
   if (bldg) bldg.addEventListener('change', () => { state.draft.building = bldg.value || null; state.draft.autoBuilding = false; render(); });
   const det = $('#detail');
