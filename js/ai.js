@@ -3,7 +3,7 @@
 
 const AI = (() => {
   const MODELS = ['gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
-  const BUDGET_MS = 7000;   // hard ceiling for the whole triage, upload included
+  const BUDGET_MS = 15000;  // ceiling for the whole triage, upload included; the keyword result is already on screen meanwhile
   // The Gemini key is never committed. It is entered once on the device (hold the seal → Demo options) and kept in localStorage.
   const key = () => { try { return localStorage.getItem('mpulse-gemini-key') || (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } catch (e) { return (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } };
   const setKey = (k) => { try { if (k) localStorage.setItem('mpulse-gemini-key', k.trim()); else localStorage.removeItem('mpulse-gemini-key'); } catch (e) { /* ignore */ } };
@@ -27,7 +27,7 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
   }
 
   // Shrink a photo before upload: ~1024px JPEG is plenty for triage and cuts a 5 MB iPhone photo to ~150 KB.
-  function shrink(dataUrl, max = 1024) {
+  function shrink(dataUrl, max = 800) {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
@@ -35,7 +35,7 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
         if (k === 1 && dataUrl.length < 400000) return resolve(dataUrl);
         const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        resolve(c.toDataURL('image/jpeg', 0.8));
+        resolve(c.toDataURL('image/jpeg', 0.7));
       };
       img.onerror = () => resolve(dataUrl);
       img.src = dataUrl;
@@ -97,7 +97,7 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
       catch (e) { lastErr = e; }
     }
     clearTimeout(deadline);
-    AI.lastError = lastErr ? (lastErr.message || String(lastErr)) : null;
+    AI.lastError = lastErr ? (lastErr.name === 'AbortError' ? 'took too long' : (lastErr.message || String(lastErr))) : null;
     return null;
   }
 
