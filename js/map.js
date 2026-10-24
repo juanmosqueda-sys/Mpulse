@@ -32,7 +32,7 @@ const MapKit = (() => {
       const want = pick();
       if (want === 'google') {
         try {
-          await loadScript(`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(CONFIG.GOOGLE_MAPS_KEY)}&v=beta&libraries=maps3d,marker`);
+          await loadScript(`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(CONFIG.GOOGLE_MAPS_KEY)}&v=beta&libraries=maps3d,marker&loading=async`);
           await google.maps.importLibrary('maps3d');
           provider = 'google'; return provider;
         } catch (e) { console.warn('Google Maps unavailable, falling back to OpenStreetMap', e); }
@@ -64,9 +64,21 @@ const MapKit = (() => {
     const { PinElement } = await google.maps.importLibrary('marker');
     const sel = selected ? BUILDINGS.find((b) => b.id === selected) : null;
     const center = sel ? { lat: sel.lat, lng: sel.lng, altitude: 0 } : { ...CAMPUS_CENTER, altitude: 0 };
-    const map = new Map3DElement({ center, range: sel ? 420 : 760, tilt: 67, heading: 25, mode: 'HYBRID', defaultUIDisabled: true });
+    const map = new Map3DElement({ center, range: sel ? 420 : 760, tilt: 67, heading: 25, mode: 'HYBRID', defaultUIHidden: true });
     map.style.width = '100%'; map.style.height = height + 'px';
     host.replaceChildren(map);
+    // If the device can't render 3D (no WebGL, or Map Tiles API not enabled on the key), drop to the 2D map.
+    let steady = false;
+    map.addEventListener('gmp-steadychange', (e) => { if (e.isSteady) steady = true; });
+    setTimeout(async () => {
+      if (steady || !host.isConnected) return;
+      console.warn('3D map did not become ready; falling back to OpenStreetMap');
+      try {
+        loadCss('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css');
+        if (!window.L) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js');
+        mountOsm(host, { selected, pins, interactive, onPick, height }); host.dataset.provider = 'osm';
+      } catch (err) { host.outerHTML = campusMap({ selected, pins, interactive, height }); }
+    }, 9000);
 
     const addMarker = (b, color, label, big) => {
       const m = new (interactive ? Marker3DInteractiveElement : Marker3DElement)({
