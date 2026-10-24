@@ -58,6 +58,7 @@ const BUILDINGS = [
   { id: 'srac', name: 'Spartan Recreation & Aquatic Center', abbr: 'SRAC', lat: 37.334390, lng: -121.880120, x: 62, y: 60, w: 14, h: 10, kw: ['srac', 'rec center', 'recreation', 'aquatic', 'gym', 'pool'] },
   { id: 'dc',   name: 'Dining Commons',            abbr: 'DC',  lat: 37.334067, lng: -121.878512, x: 74, y: 60, w: 10, h: 8, kw: ['dining commons', 'dining hall', 'cafeteria', ' dc '] },
   { id: 'jwh',  name: 'Joe West Hall',             abbr: 'JWH', lat: 37.334443, lng: -121.878152, x: 84, y: 60, w: 8, h: 10, kw: ['joe west', 'jwh'] },
+  { id: 'cvb',  name: 'Campus Village B',          abbr: 'CVB', lat: 37.335089, lng: -121.877642, x: 86, y: 70, w: 8, h: 8, kw: ['campus village b', 'cvb'] },
   { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', lat: 37.334435, lng: -121.880655, x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
 ];
 
