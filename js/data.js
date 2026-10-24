@@ -49,7 +49,7 @@ const BUILDINGS = [
   { id: 'bbc',  name: 'Boccardo Business Complex',  abbr: 'BBC', lat: 37.336442, lng: -121.878869, x: 76, y: 30, w: 14, h: 10, kw: ['boccardo', 'bbc', 'business'] },
   { id: 'its',  name: 'Interdisciplinary Sciences', abbr: 'ISB', lat: 37.333093, lng: -121.882841, x: 24, y: 64, w: 10, h: 8, kw: ['interdisciplinary', 'isb'] },
   { id: 'swc',  name: 'Student Wellness Center',    abbr: 'SWC', lat: 37.334711, lng: -121.881280, x: 60, y: 44, w: 10, h: 8, kw: ['wellness', 'health center', 'swc', 'counseling'] },
-  { id: 'ec',   name: 'Event Center',               abbr: 'EC',  lat: 37.335219, lng: -121.880100, x: 60, y: 50, w: 12, h: 8, kw: ['event center'] },
+  { id: 'ec',   name: 'Event Center',               abbr: 'EC',  lat: 37.335311, lng: -121.880044, x: 60, y: 50, w: 12, h: 8, kw: ['event center'] },
   { id: 'tower',name: 'Tower Hall',                 abbr: 'TH',  lat: 37.335294, lng: -121.883469, x: 20, y: 40, w: 8, h: 8, kw: ['tower hall', 'tower'] },
   { id: 'admin',name: 'Administration Building',   abbr: 'ADM', lat: 37.336665, lng: -121.882837, x: 26, y: 28, w: 10, h: 8, kw: ['admin', 'administration', 'registrar', 'bursar', 'financial aid'] },
   { id: 'wpg',  name: 'West Parking Garage',       abbr: 'WPG', lat: 37.332521, lng: -121.883024, x: 6, y: 84, w: 12, h: 10, kw: ['west garage', 'west parking', 'wpg', 'parking garage'] },
