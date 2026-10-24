@@ -49,7 +49,7 @@ Community posts route to their department when net votes reach `VOTE_THRESHOLD` 
 | **OpenStreetMap** | no key (default) | Real 2D map via Leaflet, colored markers, tap to select |
 | **Schematic** | `MAP_PROVIDER: 'schematic'` | Offline block diagram; used in the hosted preview, which blocks outside map servers |
 
-**Get the 3D map (5 minutes):** console.cloud.google.com → create a project → APIs & Services → Enable **Maps JavaScript API** → Credentials → Create API key → copy `js/config.local.example.js` to `js/config.local.js` and paste it there (that file is gitignored). The free tier covers a hackathon many times over. Restrict the key to your domain before you publish anywhere public.
+**Get the 3D map (5 minutes):** console.cloud.google.com → create a project → APIs & Services → Enable **Maps JavaScript API** → Credentials → Create API key → the live site's key is in `js/config.js`, restricted to `https://juanmosqueda-sys.github.io/*`. For local 3D, create your own key and put it in `js/config.local.js` (gitignored). The free tier covers a hackathon many times over. Restrict the key to your domain before you publish anywhere public.
 
 Building coordinates live in `BUILDINGS` in `js/data.js` and are approximate; verify against the official campus map before production. Tapping the map picks the nearest building within 140 m.
 
