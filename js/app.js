@@ -573,6 +573,8 @@ function bind() {
   if (v) {
     const start = (e) => { e.preventDefault(); voiceStart(v); };
     const end = (e) => { e.preventDefault(); voiceEnd(v); };
+    v.addEventListener('contextmenu', (e) => e.preventDefault());
+    v.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
     v.addEventListener('pointerdown', start);
     v.addEventListener('pointerup', end);
     v.addEventListener('pointerleave', end);

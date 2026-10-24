@@ -130,7 +130,8 @@ svg { flex-shrink: 0; }
 .btn:focus-visible, .icon-btn:focus-visible, .chip:focus-visible, .vote:focus-visible, .tab:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
 /* Voice */
-.voice { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; background: var(--navy); border: none; border-radius: 16px; padding: 14px 16px; color: #FFFFFF; }
+.voice { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; background: var(--navy); border: none; border-radius: 16px; padding: 14px 16px; color: #FFFFFF; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; }
+.voice * { user-select: none; -webkit-user-select: none; pointer-events: none; }
 .voice .mic { width: 44px; height: 44px; border-radius: 50%; background: var(--gold); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.15s; }
 .voice.listening .mic { transform: scale(1.12); box-shadow: 0 0 0 8px rgba(229,168,35,0.25); }
 .voice .t { font-size: 15px; font-weight: 700; }
