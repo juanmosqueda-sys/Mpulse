@@ -55,6 +55,7 @@ const BUILDINGS = [
   { id: 'wpg',  name: 'West Parking Garage',       abbr: 'WPG', lat: 37.332521, lng: -121.883024, x: 6, y: 84, w: 12, h: 10, kw: ['west garage', 'west parking', 'wpg', 'parking garage'] },
   { id: 'mh',   name: 'MacQuarrie Hall',           abbr: 'MH',  lat: 37.333546, lng: -121.881835, x: 40, y: 62, w: 10, h: 8, kw: ['macquarrie', 'mh ', 'cs department'] },
   { id: 'spg',  name: 'South Parking Garage',      abbr: 'SPG', lat: 37.332822, lng: -121.881015, x: 44, y: 76, w: 16, h: 10, kw: ['south garage', 'south parking', 'spg'] },
+  { id: 'srac', name: 'Spartan Recreation & Aquatic Center', abbr: 'SRAC', lat: 37.334390, lng: -121.880120, x: 62, y: 60, w: 14, h: 10, kw: ['srac', 'rec center', 'recreation', 'aquatic', 'gym', 'pool'] },
   { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', lat: 37.334435, lng: -121.880655, x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
 ];
 
