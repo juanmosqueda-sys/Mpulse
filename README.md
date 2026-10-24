@@ -53,6 +53,38 @@ Community posts route to their department when net votes reach `VOTE_THRESHOLD` 
 
 Building coordinates live in `BUILDINGS` in `js/data.js` and are approximate; verify against the official campus map before production. Tapping the map picks the nearest building within 140 m.
 
+## AI triage (the AI decides, not the reporter)
+
+`classify()` assigns every submission to one of three categories from its text, and the reporter cannot override it:
+
+| Category | Trigger | What happens |
+|---|---|---|
+| **Broken — needs fixing** | default | Work order `WO-####` to the right department; merged with matching open reports |
+| **Alert staff and students** | hazard words (`ALERT_KW`) or emergency words (`EMERGENCY_KW`) | Grouped with matching alerts by building. Held as *Awaiting staff verification*. A staff member confirms before anyone is notified; then a loud alert fires and the banner appears on Home. |
+| **Suggestion or feedback** | suggestion phrasing (`SUGGESTION_KW`) | Posted to Community as *Suggestion*; reaches staff at 100 votes |
+
+**Trust check.** Prank-like text, fewer than three words, repeated characters, or no recognizable issue and location → *Held for review*. Nothing is routed or announced until a staff member releases it.
+
+**Emergency routing.** Fire, weapon, injury and similar words mark the report *critical*, route it to University Police on submit, and open a sheet with 911 and UPD (408) 924-2222 to copy.
+
+**Staff controls** are demo buttons inside each report's timeline on My reports: verify/dismiss an alert, release/dismiss a held report, advance a work order (Assigned → In progress → Fixed → Verified). They stand in for a department login.
+
+**Spoken commands** work through hold-to-talk or typed into the box: "report this problem…", "alert students about this…", "suggest an improvement…", "what am I seeing?", "go to my reports", "what are the alerts", "what's near me". A spoken hint ("alert students…") is recorded, but the AI still picks the category and says so if it disagrees.
+
+## Assist mode (voice-first, for blind and low-vision users)
+
+Tap the speaker icon in the header, or open the app at `index.html#assist`. High-contrast dark palette, 17px base type, 48px+ targets, one large hold-to-talk button, and four big actions: What am I seeing?, Read alerts, My reports, Near me. Every screen change and result is spoken. Haptics fire on submit and on hazards. Verified dangers trigger a loud three-tone alert plus speech and vibration regardless of settings.
+
+**Launching from a physical button.** A web app can't read the power or volume buttons; the OS owns them. Both platforms let you bind a hardware gesture to open a URL, and the app launches straight into Assist mode from `#assist`:
+
+- **iPhone, Back Tap:** Settings → Accessibility → Touch → Back Tap → Triple Tap → pick a Shortcut that opens `https://<your-host>/index.html#assist`.
+- **iPhone 15 Pro and later, Action Button:** Settings → Action Button → Shortcut → same shortcut.
+- **iPhone, Accessibility Shortcut (triple-click side button):** Settings → Accessibility → Accessibility Shortcut; this can only pick accessibility features, so pair it with VoiceOver and use Back Tap for the app.
+- **Android, Quick Tap:** Settings → System → Gestures → Quick Tap → Open app (after Add to Home Screen).
+- **Bluetooth clicker or hardware keyboard:** Space or Enter = hold to talk; Escape ×3 toggles Assist mode.
+
+"What am I seeing?" opens the camera; in this prototype the description is a fixed demo sentence, labelled as such. Replace it with a vision-model call in `photo-input`'s change handler.
+
 ## Accessibility
 
 - **Spoken mode** (speaker button in the header): the app reads each screen aloud with the browser's speech synthesis — the review summary, the department it routes to, and confirmation when a work order opens.

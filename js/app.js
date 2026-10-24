@@ -11,6 +11,7 @@ const state = {
   posts: SEED_POSTS.map((p) => ({ ...p, updates: [...p.updates] })),
   votes: {},            // postId -> 'up' | 'down'
   user: null,           // { email, verifiedAt }
+  alerts: SEED_ALERTS.map((a) => ({ ...a })),
   sort: 'trending',
   filter: 'all',
 };
@@ -23,6 +24,8 @@ function load() {
     state.reports = saved.reports || [];
     state.votes = saved.votes || {};
     state.user = saved.user || null;
+    if (saved.alerts) state.alerts = saved.alerts;
+    if (saved.newPosts) state.posts = [...saved.newPosts, ...state.posts.filter((p) => !saved.newPosts.some((n) => n.id === p.id))];
     if (saved.posts) {
       // keep seeded copy fresh, overlay persisted counts/updates
       state.posts = state.posts.map((p) => {
@@ -35,7 +38,8 @@ function load() {
 function save() {
   try {
     localStorage.setItem('eaiser-campus', JSON.stringify({
-      reports: state.reports, votes: state.votes, user: state.user,
+      reports: state.reports, votes: state.votes, user: state.user, alerts: state.alerts,
+      newPosts: state.posts.filter((p) => !SEED_POSTS.some((x) => x.id === p.id)),
       posts: state.posts.map(({ id, up, down, status, updates }) => ({ id, up, down, status, updates })),
     }));
   } catch (e) { /* ignore */ }
@@ -61,8 +65,44 @@ function classify(text) {
   if (floor) detail = `${floor[1]}${['st','nd','rd'][floor[1]-1] || 'th'} floor`;
   const room = t.match(/\broom\s*(\w+)/);
   if (room) detail = (detail ? detail + ', ' : '') + 'room ' + room[1].toUpperCase();
-  return { type: type?.id || 'other', building: building?.id || null, detail, severity: type?.severity || 'low', confident: !!type };
+  // --- triage: the AI, not the reporter, decides the category ---
+  const has = (arr) => arr.some((k) => t.includes(k));
+  const emergency = has(EMERGENCY_KW);
+  let category = 'fix';
+  if (has(SUGGESTION_KW) && !has(ALERT_KW)) category = 'suggestion';
+  else if (has(ALERT_KW) || emergency) category = 'alert';
+  // --- trust: hold prank-like, too-short or contentless reports for review ---
+  const words = t.trim().split(/\s+/).filter(Boolean).length;
+  const reasons = [];
+  if (has(PRANK_KW)) reasons.push('looks like a joke or test');
+  if (words < 3) reasons.push('too short to act on');
+  if (!type && !building && category === 'fix') reasons.push('no issue or location recognized');
+  if (/(.)\1{4,}/.test(t)) reasons.push('repeated characters');
+  const trust = reasons.length ? 'review' : 'ok';
+  let severity = type?.severity || 'low';
+  if (emergency) severity = 'critical'; else if (category === 'alert' && severity !== 'high') severity = 'high';
+  return { type: type?.id || 'other', building: building?.id || null, detail, severity, confident: !!type, category, trust, reasons, emergency };
 }
+
+// Spoken or typed commands: navigate and read aloud without filing a report.
+function parseCommand(text) {
+  const t = (text || '').trim().toLowerCase();
+  const m = t.match(/^(?:go to|open|show|take me to|read|what are|what's|whats)\s+(?:the\s+|my\s+)?(.+?)\s*[.?!]?$/);
+  if (!m) return null;
+  const target = m[1];
+  if (/alert/.test(target)) return { cmd: 'alerts' };
+  if (/report|work order|mine|my stuff/.test(target)) return { cmd: 'go', view: 'mine' };
+  if (/communit|forum|post|suggestion/.test(target)) return { cmd: 'go', view: 'community' };
+  if (/home|start/.test(target)) return { cmd: 'go', view: 'home' };
+  if (/near|around|nearby|open issue/.test(target)) return { cmd: 'near' };
+  return null;
+}
+
+const CATEGORY = {
+  fix:        { label: 'Broken — needs fixing',   short: 'Fix',        tone: 'blue',  what: 'Creates a work order and sends it to the right department.' },
+  alert:      { label: 'Alert staff and students', short: 'Alert',      tone: 'red',   what: 'Grouped with matching reports. A staff member verifies it before anyone is notified.' },
+  suggestion: { label: 'Suggestion or feedback',   short: 'Suggestion', tone: 'gold',  what: `Posted to Community. Reaches staff once it has ${VOTE_THRESHOLD} votes.` },
+};
 
 function findCluster(type, building) {
   return SEED_CLUSTERS.find((c) => c.type === type && c.building === building && c.status !== 'resolved') || null;
@@ -135,9 +175,10 @@ function campusMap({ selected = null, pins = [], interactive = false, height = 2
 }
 
 // ---------- spoken mode (for low-vision use) ----------
-const speech = { on: false };
+const speech = { on: false, assist: false };
+const buzz = (p) => { if (navigator.vibrate) { try { navigator.vibrate(p || 40); } catch (e) { /* ignore */ } } };
 function speak(text) {
-  if (!speech.on || !('speechSynthesis' in window)) return;
+  if (!(speech.on || speech.assist) || !('speechSynthesis' in window)) return;
   try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 1.05; speechSynthesis.speak(u); } catch (e) { /* ignore */ }
 }
 function describeDraft() {
@@ -146,7 +187,7 @@ function describeDraft() {
   const cluster = d.building ? findCluster(d.type, d.building) : null;
   return `Review. Issue: ${t.label}. Location: ${b ? b.name : 'not set yet'}${d.detail ? ', ' + d.detail : ''}. Severity ${d.severity}. ${cluster ? cluster.count + ' other students reported this. ' : ''}Routes to ${dept.name}${t.coDept ? ', and ' + deptById(t.coDept).name : ''}. Submit button is at the bottom.`;
 }
-const toneFor = (status) => ({ submitted: 'blue', routed: 'blue', acknowledged: 'gold', in_progress: 'gold', resolved: 'green' }[status] || 'neutral');
+const toneFor = (status) => ({ submitted: 'blue', routed: 'blue', pending: 'gold', acknowledged: 'gold', assigned: 'gold', in_progress: 'gold', resolved: 'green', verified: 'green', announced: 'red', review: 'neutral', dismissed: 'neutral' }[status] || 'neutral');
 
 // ---------- views ----------
 function render() {
@@ -172,7 +213,7 @@ function header(title, sub) {
       <div><div class="brand-name">EAiSER <span>Campus</span></div><div class="brand-sub">San José State University</div></div>
     </div>
     <div class="row" style="gap:8px">
-      <button class="icon-btn" aria-label="${speech.on ? 'Turn off spoken mode' : 'Turn on spoken mode'}" aria-pressed="${speech.on}" data-act="speak" ${speech.on ? 'style="background:var(--blue);color:#fff;border-color:var(--blue)"' : ''}>${ICONS.speaker}</button>
+      <button class="icon-btn" aria-label="${speech.assist ? 'Turn off Assist mode' : 'Turn on Assist mode (voice-first, high contrast)'}" aria-pressed="${speech.assist}" data-act="assist" ${speech.assist ? 'style="background:var(--gold);color:#14213D;border-color:var(--gold)"' : ''}>${ICONS.speaker}</button>
       <button class="icon-btn" aria-label="Notifications" data-act="notif">${ICONS.bell}<span class="dot"></span></button>
     </div>
   </div>`;
@@ -192,8 +233,15 @@ function Home() {
       <span class="pill ${tone}">${esc(REPORT_STATUS[c.status])}</span>
     </button>`;
   }).join('');
+  const live = state.alerts.filter((a) => a.status === 'verified');
+  const alertsHtml = live.length ? `<div class="alerts" role="region" aria-label="Campus alerts">
+      <div class="row between"><span class="row" style="gap:6px;font-weight:800;font-size:13px;color:var(--red)">${ICONS.bell} ${live.length} campus alert${live.length > 1 ? 's' : ''}</span><button class="btn ghost" style="height:30px;padding:0 10px;font-size:12px" data-act="read-alerts" aria-label="Read alerts aloud">${ICONS.speaker} Read</button></div>
+      ${live.map((a) => `<div class="stack" style="gap:2px"><b style="font-size:14px">${esc(a.title)}</b><span class="muted small">${esc(bldgById(a.building)?.name || 'Campus')}${a.detail ? ' · ' + esc(a.detail) : ''} · verified by ${esc(a.verifiedBy)} · ${ago(a.at)} ago</span>${a.note ? `<span style="font-size:13px">${esc(a.note)}</span>` : ''}</div>`).join('')}
+    </div>` : '';
+  if (speech.assist) return AssistHome(alertsHtml, live);
   return `
   ${header()}
+  ${alertsHtml}
   <div class="stack" style="gap:4px;margin-top:6px">
     <h1>What's not working?</h1>
     <p class="muted" style="font-size:15px">Type it, say it, or snap it. We find the right department.</p>
@@ -219,6 +267,29 @@ function Home() {
   <div class="stack">${near}</div>`;
 }
 
+// Voice-first, high-contrast layout for blind and low-vision users.
+function AssistHome(alertsHtml, live) {
+  return `
+  ${header()}
+  <div class="stack" style="gap:4px"><h1 style="font-size:30px">Assist mode</h1><p class="muted" style="font-size:17px">Hold the big button and say what's wrong. Or say a command.</p></div>
+  ${alertsHtml}
+  <button class="voice assist-big" id="voice-btn" aria-label="Hold to talk">
+    <span class="mic">${ICONS.mic}</span>
+    <span class="grow"><div class="t">Hold to talk</div><div class="s">"Report this problem" · "Alert students about this" · "Suggest an improvement" · "What am I seeing?"</div></span>
+  </button>
+  <div class="assist-grid">
+    <button class="assist-btn" data-act="see" aria-label="What am I seeing? Opens the camera and describes it">${ICONS.map}<span>What am I seeing?</span></button>
+    <button class="assist-btn" data-act="read-alerts" aria-label="Read campus alerts aloud">${ICONS.bell}<span>Read alerts (${live.length})</span></button>
+    <button class="assist-btn" data-go="mine" aria-label="My reports">${ICONS.check}<span>My reports</span></button>
+    <button class="assist-btn" data-act="read-near" aria-label="Read open issues near me">${ICONS.pin}<span>Near me</span></button>
+  </div>
+  <form class="report-box" id="text-form" style="margin-top:4px">
+    <label for="report-text" class="eyebrow blue" style="font-size:13px">Or type it</label>
+    <textarea id="report-text" rows="2" placeholder="Describe the problem or type a command…" style="font-size:18px"></textarea>
+    <div class="row between"><span></span><button class="btn primary" type="submit" id="text-submit" disabled style="height:44px;font-size:15px">Send ${ICONS.arrow}</button></div>
+  </form>`;
+}
+
 function clusterTitle(c) {
   return ({ elevator: 'Elevator out of service', outlet: 'Outlets not working', printer: 'Printers out of toner', wifi: 'Wi‑Fi dropping' })[c.type] || typeById(c.type).label + ' issue';
 }
@@ -237,6 +308,16 @@ function Review() {
       ? `<div class="photo" style="flex-direction:column;gap:8px"><span style="opacity:.9;font-size:12px;font-weight:600">No photo yet</span><button type="button" class="retake" data-act="retake" style="position:static">Open camera</button></div>`
       : '';
   const srcLabel = { text: 'Typed', voice: 'Voice transcript', photo: 'Photo' }[d.source];
+  const cat = CATEGORY[d.category];
+  const hintNote = d.hint && d.hint !== d.category ? `<span class="muted small">You said "${esc(CATEGORY[d.hint].short.toLowerCase())}". The AI filed it as ${esc(cat.short.toLowerCase())} instead, based on what you described.</span>` : '';
+  const triage = `<div class="card pad stack triage ${cat.tone}" style="gap:6px">
+      <div class="row between"><span class="eyebrow">AI decided</span><span class="pill ${cat.tone}">${esc(cat.short)}</span></div>
+      <b style="font-size:16px">${esc(cat.label)}</b>
+      <span class="muted" style="font-size:13px">${esc(cat.what)}</span>
+      ${hintNote}
+      ${d.emergency ? `<span class="row" style="gap:6px;font-size:13px;font-weight:700;color:var(--red)">${ICONS.bell} Possible emergency. University Police notified on submit. <button class="btn ghost" style="height:28px;padding:0 10px;font-size:12px" data-act="emergency">Numbers</button></span>` : ''}
+    </div>
+    ${d.trust === 'review' ? `<div class="card pad stack" style="border-color:var(--gold);background:var(--gold-soft);gap:4px"><b style="font-size:14px">This will be held for review</b><span class="muted small">Reason: ${esc(d.reasons.join(', '))}. A staff member looks at it before anything is routed or announced. Add detail to send it straight through.</span></div>` : ''}`;
   return `
   <div class="topbar">
     <button class="icon-btn back" data-go="home" aria-label="Back">${ICONS.back}</button>
@@ -247,8 +328,10 @@ function Review() {
     <span style="width:40px"></span>
   </div>
   ${photo}
+  ${d.seeDesc ? `<div class="card pad stack" style="gap:4px;border-color:var(--blue)"><span class="eyebrow blue">What the AI sees</span><p style="font-size:14px">${esc(d.seeDesc)}</p></div>` : ''}
   ${d.text ? `<div class="card pad stack" style="gap:4px"><span class="eyebrow">${esc(srcLabel)}</span><p style="font-size:14px">${esc(d.text)}</p></div>` : ''}
   <div class="row" style="gap:8px"><span style="color:var(--blue)">${ICONS.spark}</span><span style="font-size:13px;font-weight:600;color:var(--blue)">${d.confident ? 'AI filled the details. Tap anything to change it.' : 'Tell us the type and building so we can route it.'}</span></div>
+  ${triage}
   <div class="card pad stack">
     <div class="stack" style="gap:8px"><span class="eyebrow">Issue type</span><div class="chips">${chips}</div></div>
     <div class="hr"></div>
@@ -271,11 +354,11 @@ function Review() {
       <div class="avatars"><span style="background:var(--blue)"></span><span style="background:#1C88CA"></span><span class="n">+${Math.max(0, cluster.count - 2)}</span></div>
       <div class="stack" style="gap:2px"><b style="font-size:14px">${cluster.count} other students reported this</b><span class="muted small">First report ${fmtDate(cluster.first)} · most recent ${ago(cluster.last)} ago. You're not the only one.</span></div>
     </div>` : ''}
-  <div class="row" style="padding:4px 2px;align-items:flex-start"><span style="color:var(--ink-2);margin-top:2px">${ICONS.send}</span><div><div class="muted small">Creates a work order with</div><div style="font-size:13px;font-weight:600">${esc(dept.name)}</div>${t.coDept ? `<div class="row" style="gap:4px;font-size:12px;color:var(--blue);font-weight:600;margin-top:2px">${ICONS.shield} Also notifies ${esc(deptById(t.coDept).name)}</div>` : ''}</div></div>
+  <div class="row" style="padding:4px 2px;align-items:flex-start"><span style="color:var(--ink-2);margin-top:2px">${ICONS.send}</span><div><div class="muted small">${d.category === 'alert' ? 'Verified by' : d.category === 'suggestion' ? 'Reaches' : 'Creates a work order with'}</div><div style="font-size:13px;font-weight:600">${esc(dept.name)}</div>${t.coDept ? `<div class="row" style="gap:4px;font-size:12px;color:var(--blue);font-weight:600;margin-top:2px">${ICONS.shield} Also notifies ${esc(deptById(t.coDept).name)}</div>` : ''}</div></div>
   <div class="footer-cta">
     <div class="row" style="gap:8px">
       <button class="btn ghost" style="height:54px;border-radius:16px;padding:0 14px" data-act="readback" aria-label="Read this report back to me">${ICONS.speaker}</button>
-      <button class="btn primary big" id="submit-report" ${d.building ? '' : 'disabled'}>Submit work order ${ICONS.arrow}</button>
+      <button class="btn primary big" id="submit-report" ${d.building || d.category === 'suggestion' || d.trust === 'review' ? '' : 'disabled'}>${d.trust === 'review' ? 'Submit for review' : d.category === 'alert' ? 'Submit alert' : d.category === 'suggestion' ? 'Post suggestion' : 'Submit work order'} ${ICONS.arrow}</button>
     </div>
     <span class="muted" style="text-align:center;font-size:11px">Your name is shared only with the department, never with other students.</span>
   </div>`;
@@ -313,7 +396,7 @@ function PostCard(p, full = false) {
     </div>
     <div class="stack grow" style="gap:8px">
       <div class="post-meta"><span class="av"></span><b>Anonymous Spartan</b><span>·</span><span>${ago(p.at)}</span><span class="pill ${st.tone}" style="margin-left:auto">${esc(st.label)}</span></div>
-      <div class="post-meta" style="gap:4px;color:var(--ink-2)"><span class="pill ${p.category === 'Safety' ? 'red' : 'blue'}">${esc(p.category)}</span><span style="display:inline-flex;align-items:center;gap:3px">${ICONS.pin} ${esc(b ? b.name : 'Campus')}</span></div>
+      <div class="post-meta" style="gap:4px;color:var(--ink-2)"><span class="pill ${p.category === 'Safety' ? 'red' : p.category === 'Suggestion' ? 'gold' : 'blue'}">${esc(p.category)}</span>${p.aiRouted ? '<span class="muted small">· filed by AI</span>' : ''}<span style="display:inline-flex;align-items:center;gap:3px">${ICONS.pin} ${esc(b ? b.name : 'Campus')}</span></div>
       <button class="post-title" data-open="${p.id}" style="all:unset;cursor:pointer"><h3>${esc(p.title)}</h3></button>
       <p>${esc(p.body)}</p>
       ${updates ? (full ? updates : updates.split('</div>')[0] + '</div>') : ''}
@@ -377,7 +460,7 @@ function PostDetail() {
 
 function Mine() {
   const rs = [...state.reports].sort((a, b) => new Date(b.at) - new Date(a.at));
-  const counts = { all: rs.length, prog: rs.filter((r) => ['routed','acknowledged','in_progress'].includes(r.status)).length, fixed: rs.filter((r) => r.status === 'resolved').length };
+  const counts = { all: rs.length, prog: rs.filter((r) => ['routed','pending','acknowledged','assigned','in_progress','review'].includes(r.status)).length, fixed: rs.filter((r) => ['resolved','verified','announced'].includes(r.status)).length };
   const cards = rs.map((r, i) => ReportCard(r, i === 0)).join('');
   return `
   <div class="stack" style="gap:3px"><h1>My work orders</h1><span class="muted">Every report becomes a work order with a status. You'll know what happened.</span></div>
@@ -385,32 +468,37 @@ function Mine() {
   <div class="stats">
     <div class="stat"><b class="num">${counts.all}</b><span>Submitted</span></div>
     <div class="stat"><b class="num" style="color:var(--gold-text)">${counts.prog}</b><span>In progress</span></div>
-    <div class="stat"><b class="num" style="color:var(--green)">${counts.fixed}</b><span>Fixed</span></div>
+    <div class="stat"><b class="num" style="color:var(--green)">${counts.fixed}</b><span>Done</span></div>
   </div>
   ${rs.length ? `<div class="stack">${cards}</div>` : `<div class="card pad stack" style="align-items:center;text-align:center;padding:28px 16px"><b>Nothing reported yet</b><span class="muted">Type, say, or snap something on the Home tab. It shows up here with a live status.</span><button class="btn primary" data-go="home">Report something</button></div>`}`;
 }
 
 function ReportCard(r, open) {
-  const t = typeById(r.type), b = bldgById(r.building), dept = deptById(r.dept);
+  const b = bldgById(r.building), dept = r.dept ? deptById(r.dept) : null;
   const tone = toneFor(r.status);
-  const order = ['submitted','routed','acknowledged','resolved'];
-  const have = r.events.map((e) => e.status === 'in_progress' ? 'acknowledged' : e.status);
-  const idx = Math.max(...order.map((s, i) => have.includes(s) ? i : -1));
-  const tl = order.map((s, i) => {
-    const ev = r.events.find((e) => (e.status === 'in_progress' ? 'acknowledged' : e.status) === s);
-    const cls = i < idx ? 'done' : i === idx ? (s === 'resolved' ? 'done' : 'now') : 'todo';
-    const label = s === 'routed' ? `Routed to ${esc(dept.name)}` : s === 'acknowledged' ? (ev && /assigned|ordered|scheduled/i.test(ev.note) ? 'Technician assigned' : 'Acknowledged') : REPORT_STATUS[s];
-    const sub = ev ? `${fmtTime(ev.at)}${ev.note ? ' · ' + esc(ev.note) : ''}` : (s === 'resolved' ? "We'll notify you" : 'Pending');
-    return `<div class="tl ${cls}"><div class="rail"><span class="node ${cls}">${cls === 'done' ? ICONS.check : ''}</span>${i < order.length - 1 ? `<span class="line ${i < idx ? 'done' : ''}"></span>` : ''}</div><div class="body"><b>${label}</b><span>${sub}</span></div></div>`;
-  }).join('');
+  const cat = CATEGORY[r.category || 'fix'];
+  // timeline: every event so far, then the remaining expected steps
+  const expected = r.category === 'alert' ? ['verified', 'announced'] : r.status === 'review' ? ['routed'] : ['assigned', 'in_progress', 'resolved', 'verified'];
+  const done = r.events.map((e) => e.status);
+  const todo = r.status === 'dismissed' ? [] : expected.filter((x) => !done.includes(x) && !(x === 'assigned' && done.includes('acknowledged')));
+  const rows = [
+    ...r.events.map((e, i) => ({ cls: i === r.events.length - 1 && todo.length && !['resolved','verified','announced'].includes(e.status) ? 'now' : 'done', label: e.status === 'routed' && dept ? `Routed to ${esc(dept.name)}` : REPORT_STATUS[e.status] || e.status, sub: `${fmtTime(e.at)}${e.note ? ' · ' + esc(e.note) : ''}` })),
+    ...todo.map((x) => ({ cls: 'todo', label: REPORT_STATUS[x], sub: x === 'resolved' ? "We'll notify you" : 'Pending' })),
+  ];
+  const tl = rows.map((row, i) => `<div class="tl ${row.cls}"><div class="rail"><span class="node ${row.cls}">${row.cls === 'done' ? ICONS.check : ''}</span>${i < rows.length - 1 ? `<span class="line ${row.cls === 'done' ? 'done' : ''}"></span>` : ''}</div><div class="body"><b>${row.label}</b><span>${row.sub}</span></div></div>`).join('');
+  // staff-side demo controls
+  let staff = '';
+  if (r.status === 'review') staff = `<div class="staff"><span class="eyebrow">Staff demo</span><div class="row" style="gap:8px"><button class="btn primary" style="height:34px" data-staff="release" data-id="${r.id}">Looks real · route it</button><button class="btn ghost" style="height:34px" data-staff="dismiss-review" data-id="${r.id}">Dismiss</button></div></div>`;
+  else if (r.category === 'alert' && r.status === 'pending') staff = `<div class="staff"><span class="eyebrow">Staff demo · verify before announcing</span><div class="row" style="gap:8px"><button class="btn primary" style="height:34px;background:var(--red)" data-staff="verify" data-id="${r.alertId}">Confirmed · announce</button><button class="btn ghost" style="height:34px" data-staff="dismiss-alert" data-id="${r.alertId}">Can't confirm</button></div></div>`;
+  else if (r.category !== 'alert' && ['routed','acknowledged','assigned','in_progress','resolved'].includes(r.status)) staff = `<div class="staff"><span class="eyebrow">Staff demo</span><button class="btn ghost" style="height:34px" data-staff="advance" data-id="${r.id}">Next: ${esc(REPORT_STATUS[{ routed: 'assigned', acknowledged: 'in_progress', assigned: 'in_progress', in_progress: 'resolved', resolved: 'verified' }[r.status]])}</button></div>`;
   return `
   <article class="card pad stack" style="gap:14px">
     <button class="row" data-toggle="${r.id}" style="all:unset;cursor:pointer;display:flex;align-items:flex-start;gap:12px;width:100%">
       <span class="ico ${tone}">${iconFor(r.type)}</span>
-      <span class="grow"><div style="font-size:15px;font-weight:700">${esc(r.title)}</div><div class="muted small">${esc(b ? b.name : 'Campus')}${r.detail ? ' · ' + esc(r.detail) : ''} · ${r.id}${r.coDept ? ' · ' + esc(deptById(r.coDept).short) + ' notified' : ''}</div></span>
+      <span class="grow"><div style="font-size:15px;font-weight:700">${esc(r.title)}</div><div class="muted small">${esc(b ? b.name : 'Campus')}${r.detail ? ' · ' + esc(r.detail) : ''} · ${r.id} · <span class="pill ${cat.tone}" style="font-size:10px;padding:2px 6px">${esc(cat.short)}</span>${r.coDept ? ' · ' + esc(deptById(r.coDept).short) + ' notified' : ''}</div></span>
       <span class="pill ${tone}">${esc(REPORT_STATUS[r.status])}</span>
     </button>
-    <div class="timeline" ${open || r.open ? '' : 'hidden'}>${tl}</div>
+    <div class="timeline" ${open || r.open ? '' : 'hidden'}>${tl}${staff}</div>
   </article>`;
 }
 
@@ -425,13 +513,79 @@ function go(view) {
 }
 
 function startDraft(text, source, extra = {}) {
+  const cmd = parseCommand(text);
+  if (cmd && !extra.type) { runCommand(cmd); return; }
   const c = classify(text);
-  state.draft = { text, source, type: c.type, building: c.building, autoBuilding: !!c.building, detail: c.detail, severity: c.severity, confident: c.confident, photo: null, ...extra };
+  state.draft = { text, source, type: c.type, building: c.building, autoBuilding: !!c.building, detail: c.detail, severity: c.severity, confident: c.confident, category: c.category, trust: c.trust, reasons: c.reasons, emergency: c.emergency, photo: null, ...extra };
   go('review');
+  if (c.emergency) openEmergency();
+}
+
+// Spoken phrases that carry an intent hint before the description.
+function handleUtterance(text, source, extra = {}) {
+  const t = text.trim();
+  const m = t.match(/^(report this problem|report this|alert students about this|alert students|suggest an improvement|suggestion|what am i seeing)[.,:]?\s*(.*)$/i);
+  if (!m) return startDraft(t, source, extra);
+  const head = m[1].toLowerCase(), rest = m[2].trim();
+  if (head.startsWith('what am i seeing')) { state.pendingSee = true; speak('Opening the camera. Point it at the problem.'); $('#photo-input').click(); return; }
+  const hint = head.startsWith('alert') ? 'alert' : head.startsWith('suggest') ? 'suggestion' : 'fix';
+  if (!rest) { state.pendingHint = hint; speak(`Okay. ${hint === 'alert' ? 'Alert' : hint === 'suggestion' ? 'Suggestion' : 'Report'}. Now describe it, or take a photo.`); $('#photo-input').click(); return; }
+  startDraft(rest, source, { ...extra, hint });
+}
+
+function runCommand(cmd) {
+  const was = speech.on; speech.on = true;
+  if (cmd.cmd === 'go') { go(cmd.view); }
+  else if (cmd.cmd === 'alerts') {
+    const live = state.alerts.filter((a) => a.status === 'verified');
+    go('home');
+    speak(live.length ? `${live.length} campus alert${live.length > 1 ? 's' : ''}. ` + live.map((a) => `${a.title} at ${bldgById(a.building)?.name || 'campus'}. ${a.note}`).join(' ') : 'No campus alerts right now.');
+  }
+  else if (cmd.cmd === 'near') { go('home'); speak('Open issues near you: ' + SEED_CLUSTERS.filter((c) => c.status !== 'resolved').map((c) => `${clusterTitle(c)} at ${bldgById(c.building).name}, ${REPORT_STATUS[c.status]}`).join('. ')); }
+  speech.on = was;
+  toast('Voice command: ' + (cmd.cmd === 'go' ? 'opened ' + cmd.view : cmd.cmd === 'alerts' ? 'reading alerts' : 'nearby issues'));
+}
+
+// Loud alert for verified dangers: audible tone + spoken message, regardless of spoken-mode setting.
+function loudAlert(text) {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    for (let i = 0; i < 3; i++) {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'square'; o.frequency.value = i % 2 ? 660 : 880;
+      g.gain.setValueAtTime(0.0001, ac.currentTime + i * 0.35);
+      g.gain.exponentialRampToValueAtTime(0.4, ac.currentTime + i * 0.35 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + i * 0.35 + 0.3);
+      o.connect(g).connect(ac.destination); o.start(ac.currentTime + i * 0.35); o.stop(ac.currentTime + i * 0.35 + 0.32);
+    }
+  } catch (e) { /* no audio */ }
+  if ('speechSynthesis' in window) { try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance('Campus alert. ' + text); u.rate = 1; u.volume = 1; setTimeout(() => speechSynthesis.speak(u), 1100); } catch (e) { /* ignore */ } }
+  if (navigator.vibrate) { try { navigator.vibrate([300, 150, 300, 150, 600]); } catch (e) { /* ignore */ } }
+}
+
+function openEmergency() {
+  sheet(`
+    <div class="stack" style="gap:6px">
+      <span class="pill red" style="align-self:flex-start">Possible emergency</span>
+      <h2 style="font-size:20px">If someone is in danger, call now.</h2>
+      <span class="muted">Your report is still being filed and routed to University Police. Don't wait on the app.</span>
+    </div>
+    <div class="stack" style="gap:8px">
+      <div class="card pad row between" style="border-color:var(--red)"><div><div class="eyebrow" style="color:var(--red)">Emergency</div><div style="font-size:24px;font-weight:800" class="num">911</div></div><button class="btn primary" style="background:var(--red)" data-copy="911">Copy</button></div>
+      <div class="card pad row between"><div><div class="eyebrow">SJSU University Police, 24/7</div><div style="font-size:20px;font-weight:800" class="num">(408) 924-2222</div></div><button class="btn ghost" data-copy="4089242222">Copy</button></div>
+    </div>
+    <span class="muted small">Tap a number to copy it, then dial from your phone app.</span>`);
+  $('#sheet').querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); toast('Copied ' + b.dataset.copy); } catch (e) { toast(b.dataset.copy); }
+  }));
+  const was = speech.on; speech.on = true; speak('This looks like an emergency. If someone is in danger call 911, or University Police at 4 0 8, 9 2 4, 2 2 2 2.'); speech.on = was;
 }
 
 function submitReport() {
   const d = state.draft;
+  if (d.trust === 'review') return submitForReview();
+  if (d.category === 'suggestion') return submitSuggestion();
+  if (d.category === 'alert') return submitAlert();
   const t = typeById(d.type), dept = deptById(t.dept);
   const cluster = d.building ? findCluster(d.type, d.building) : null;
   const now = new Date().toISOString();
@@ -451,8 +605,76 @@ function submitReport() {
   state.draft = null;
   save();
   go('mine');
+  buzz([40, 30, 40]);
   const msg = `Work order ${id} opened with ${dept.short}${co ? ' and ' + co.short : ''}`;
   toast(msg); speak(msg + '. It is now in My reports.');
+}
+
+function submitForReview() {
+  const d = state.draft, now = new Date().toISOString();
+  const id = 'RV-' + String(200 + state.reports.length).padStart(4, '0');
+  state.reports.push({ id, at: now, title: d.text.slice(0, 60) || 'Report', type: d.type, building: d.building, detail: d.detail, severity: d.severity, dept: null, status: 'review', category: d.category, source: d.source,
+    events: [{ status: 'submitted', at: now, note: 'by ' + d.source }, { status: 'review', at: now, note: 'Held: ' + d.reasons.join(', ') + '. A staff member will look before anything is routed.' }] });
+  state.draft = null; save(); go('mine');
+  toast('Held for review. Nothing was sent yet.'); speak('Your report was held for review and not sent. ' + d.reasons.join(', ') + '.');
+}
+
+function submitSuggestion() {
+  const d = state.draft, now = new Date().toISOString();
+  const id = 'p' + Date.now();
+  const b = d.building ? bldgById(d.building) : null;
+  state.posts.unshift({ id, title: d.text.length > 80 ? d.text.slice(0, 77) + '…' : d.text, body: d.text.length > 80 ? d.text : '', category: 'Suggestion', building: d.building, up: 1, down: 0, comments: 0, at: now, dept: typeById(d.type).dept, status: 'collecting', updates: [], aiRouted: true });
+  state.votes[id] = 'up';
+  state.draft = null; state.sort = 'recent'; save(); go('community');
+  toast('Filed as a suggestion. Collecting support.'); speak(`Filed as a suggestion in Community${b ? ' for ' + b.name : ''}. It reaches staff at ${VOTE_THRESHOLD} votes.`);
+}
+
+function submitAlert() {
+  const d = state.draft, now = new Date().toISOString();
+  const b = d.building ? bldgById(d.building) : null;
+  const match = state.alerts.find((a) => a.building === d.building && a.status !== 'dismissed' && a.status !== 'resolved');
+  if (match) { match.count += 1; }
+  const id = match ? match.id : 'a' + Date.now();
+  if (!match) state.alerts.unshift({ id, title: d.text.length > 60 ? d.text.slice(0, 57) + '…' : d.text, building: d.building, detail: d.detail, severity: d.severity, at: now, status: 'pending', count: 1, note: '', emergency: d.emergency });
+  const rid = 'AL-' + String(300 + state.reports.length).padStart(4, '0');
+  state.reports.push({ id: rid, at: now, alertId: id, title: d.text.slice(0, 60), type: d.type, building: d.building, detail: d.detail, severity: d.severity, dept: d.emergency ? 'upd' : typeById(d.type).dept, status: 'pending', category: 'alert', source: d.source,
+    events: [{ status: 'submitted', at: now, note: 'by ' + d.source }, { status: 'pending', at: now, note: match ? `Grouped with ${match.count - 1} matching report${match.count > 2 ? 's' : ''} · staff verification required before announcement` : (d.emergency ? 'University Police notified immediately · staff verification required before campus announcement' : 'New alert · staff verification required before announcement') }] });
+  state.draft = null; save(); go('mine');
+  toast(match ? `Grouped with ${match.count - 1} other report${match.count > 2 ? 's' : ''}. Awaiting staff.` : 'Alert filed. Awaiting staff verification.');
+  speak(`Filed as an alert${b ? ' at ' + b.name : ''}. ${match ? (match.count - 1) + ' other students reported the same thing. ' : ''}A staff member has to verify it before students are notified.`);
+}
+
+// Staff-side demo controls (stand-in for a department login).
+function staffVerifyAlert(id) {
+  const a = state.alerts.find((x) => x.id === id); if (!a) return;
+  a.status = 'verified'; a.verifiedBy = 'Staff (demo)'; a.note = a.note || 'Please avoid the area until it is cleared.';
+  state.reports.filter((r) => r.alertId === id).forEach((r) => { r.status = 'announced'; r.events.push({ status: 'verified', at: new Date().toISOString(), note: 'Verified by staff' }, { status: 'announced', at: new Date().toISOString(), note: 'Students and staff notified' }); });
+  save(); render();
+  loudAlert(`${a.title} at ${bldgById(a.building)?.name || 'campus'}. ${a.note}`);
+}
+function staffDismissAlert(id) {
+  const a = state.alerts.find((x) => x.id === id); if (!a) return;
+  a.status = 'dismissed';
+  state.reports.filter((r) => r.alertId === id).forEach((r) => { r.status = 'dismissed'; r.events.push({ status: 'dismissed', at: new Date().toISOString(), note: 'Staff could not confirm the issue' }); });
+  save(); render(); toast('Alert dismissed. No announcement sent.');
+}
+function staffAdvance(rid) {
+  const r = state.reports.find((x) => x.id === rid); if (!r) return;
+  const chain = ['routed', 'assigned', 'in_progress', 'resolved', 'verified'];
+  const i = chain.indexOf(r.status === 'acknowledged' ? 'assigned' : r.status);
+  const next = chain[Math.min(chain.length - 1, i + 1)];
+  if (next === r.status) return;
+  r.status = next;
+  const notes = { assigned: 'Technician assigned', in_progress: 'Work started', resolved: 'Marked fixed by department', verified: 'Fix verified · map updated' };
+  r.events.push({ status: next, at: new Date().toISOString(), note: notes[next] });
+  save(); render(); toast(REPORT_STATUS[next]);
+  if (next === 'resolved' || next === 'verified') speak(`${r.title} at ${bldgById(r.building)?.name || 'campus'} is ${REPORT_STATUS[next].toLowerCase()}.`);
+}
+function staffReleaseReview(rid, ok) {
+  const r = state.reports.find((x) => x.id === rid); if (!r) return;
+  if (ok) { r.status = 'routed'; r.dept = typeById(r.type).dept; r.events.push({ status: 'routed', at: new Date().toISOString(), note: 'Released by staff and routed' }); }
+  else { r.status = 'dismissed'; r.events.push({ status: 'dismissed', at: new Date().toISOString(), note: 'Staff dismissed as not actionable' }); }
+  save(); render();
 }
 
 function vote(id, dir) {
@@ -530,13 +752,22 @@ function voiceEnd(btn) {
   $('.t', btn).textContent = 'Hold to talk';
   $('.s', btn).textContent = "Say what's wrong and where. We transcribe and route it.";
   if (held < 0.4) { toast('Hold the button while you talk'); return; }
-  const samples = [
+  const samples = speech.assist ? [
+    'Report this problem. The ramp at the Student Union east entrance is blocked by a scooter pile',
+    'Alert students about this. There is water flooding the second floor hallway of Washburn Hall',
+    'Suggest an improvement. The library should keep the 6th floor open until midnight during finals',
+    'What are the alerts',
+    'The elevator in Clark Hall is out again, second floor',
+  ] : [
     'The elevator in Clark Hall is out again, second floor',
     'None of the outlets on the 6th floor of the library work',
     'Printer on the first floor of Engineering has no toner',
+    'There is water flooding the second floor hallway of Washburn Hall',
+    'Go to my reports',
   ];
   const text = samples[Math.floor(Math.random() * samples.length)];
-  startDraft(text, 'voice', { seconds: Math.max(3, Math.round(held)) });
+  buzz(30);
+  handleUtterance(text, 'voice', { seconds: Math.max(3, Math.round(held)) });
 }
 
 function sheet(html) {
@@ -566,7 +797,7 @@ function bind() {
     const ta = $('#report-text'), btn = $('#text-submit');
     const started = { t: null };
     ta.addEventListener('input', () => { btn.disabled = !ta.value.trim(); if (!started.t) started.t = Date.now(); });
-    form.addEventListener('submit', (e) => { e.preventDefault(); if (!ta.value.trim()) return; startDraft(ta.value.trim(), 'text', { seconds: started.t ? Math.round((Date.now() - started.t) / 1000) : 10 }); });
+    form.addEventListener('submit', (e) => { e.preventDefault(); if (!ta.value.trim()) return; handleUtterance(ta.value.trim(), 'text', { seconds: started.t ? Math.round((Date.now() - started.t) / 1000) : 10 }); });
   }
 
   const v = $('#voice-btn');
@@ -604,10 +835,21 @@ function bind() {
   el.querySelectorAll('[data-act="verify"]').forEach((b) => b.addEventListener('click', () => openVerify()));
   el.querySelectorAll('[data-act="newpost"]').forEach((b) => b.addEventListener('click', openNewPost));
   el.querySelectorAll('[data-act="notif"]').forEach((b) => b.addEventListener('click', () => toast(state.reports.length ? `${state.reports.length} work order${state.reports.length > 1 ? 's' : ''} being tracked` : 'No updates yet')));
-  el.querySelectorAll('[data-act="speak"]').forEach((b) => b.addEventListener('click', () => {
-    speech.on = !speech.on; render();
-    if (speech.on) speak('Spoken mode on. Home. Describe the issue in the text box, hold the talk button, or tap Snap at the bottom to take a photo.');
-    else toast('Spoken mode off');
+  el.querySelectorAll('[data-act="assist"]').forEach((b) => b.addEventListener('click', () => {
+    speech.assist = !speech.assist; speech.on = speech.assist; document.body.classList.toggle('assist', speech.assist);
+    try { localStorage.setItem('eaiser-assist', speech.assist ? '1' : '0'); } catch (e) { /* ignore */ }
+    buzz([60, 40, 60]); render();
+    if (speech.assist) speak('Assist mode on. Hold the big button and say what is wrong. You can also say: report this problem, alert students about this, suggest an improvement, or what am I seeing.');
+    else toast('Assist mode off');
+  }));
+  el.querySelectorAll('[data-act="read-alerts"]').forEach((b) => b.addEventListener('click', () => runCommand({ cmd: 'alerts' })));
+  el.querySelectorAll('[data-act="read-near"]').forEach((b) => b.addEventListener('click', () => runCommand({ cmd: 'near' })));
+  el.querySelectorAll('[data-act="see"]').forEach((b) => b.addEventListener('click', () => { state.pendingSee = true; $('#photo-input').click(); }));
+  el.querySelectorAll('[data-act="emergency"]').forEach((b) => b.addEventListener('click', openEmergency));
+  el.querySelectorAll('[data-staff]').forEach((b) => b.addEventListener('click', () => {
+    const a = b.dataset.staff, id = b.dataset.id;
+    if (a === 'verify') staffVerifyAlert(id); else if (a === 'dismiss-alert') staffDismissAlert(id);
+    else if (a === 'advance') staffAdvance(id); else if (a === 'release') staffReleaseReview(id, true); else if (a === 'dismiss-review') staffReleaseReview(id, false);
   }));
   el.querySelectorAll('[data-act="readback"]').forEach((b) => b.addEventListener('click', () => {
     const was = speech.on; speech.on = true; speak(describeDraft()); speech.on = was;
@@ -645,10 +887,37 @@ $('#photo-input').addEventListener('change', (e) => {
   const f = e.target.files?.[0];
   if (!f) return;
   const r = new FileReader();
-  r.onload = () => { if (!state.draft) state.draft = { text: '', source: 'photo', type: 'other', building: null, detail: '', severity: 'low', confident: false }; state.draft.photo = r.result; state.draft.source = 'photo'; render(); };
+  r.onload = () => {
+    if (state.pendingSee) {
+      state.pendingSee = false;
+      // Demo stand-in for a vision model: a fixed description, clearly labelled.
+      const desc = 'Demo description: a concrete ramp with a wide crack across it and a scooter lying on its side at the top. Possible hazard for wheelchair users.';
+      startDraft('Blocked ramp with a crack at the Student Union east entrance', 'photo', { photo: r.result, seeDesc: desc, hint: state.pendingHint || undefined });
+      state.pendingHint = null;
+      const was = speech.on; speech.on = true; speak(desc + ' I filed this as ' + CATEGORY[state.draft.category].label + '. Review it and say submit, or tap the button at the bottom.'); speech.on = was;
+      if (state.draft.severity === 'high' || state.draft.severity === 'critical') { buzz([200, 100, 200]); }
+      return;
+    }
+    if (!state.draft) state.draft = { text: '', source: 'photo', type: 'other', building: null, detail: '', severity: 'low', confident: false, category: 'fix', trust: 'ok', reasons: [], hint: state.pendingHint || undefined };
+    state.pendingHint = null;
+    state.draft.photo = r.result; state.draft.source = 'photo'; render();
+  };
   r.readAsDataURL(f);
   e.target.value = '';
 });
 
 load();
+try { if (localStorage.getItem('eaiser-assist') === '1') { speech.assist = true; speech.on = true; document.body.classList.add('assist'); } } catch (e) { /* ignore */ }
+// Hardware launch: a phone shortcut (Back Tap, Action Button, Quick Tap) opens the app at #assist and lands in voice-first mode.
+const launchAssist = (/[#&?]assist/.test(location.hash) || /[?&]assist=1/.test(location.search));
+if (launchAssist) { speech.assist = true; speech.on = true; document.body.classList.add('assist'); try { localStorage.setItem('eaiser-assist', '1'); } catch (e) { /* ignore */ } }
 render();
+if (launchAssist) { buzz([80, 40, 80]); setTimeout(() => { speak('Assist mode. Hold the big button and say what is wrong.'); $('#voice-btn')?.focus(); }, 300); }
+// Hardware keyboard / Bluetooth clicker: Space or Enter with nothing focused = hold to talk; pressing Escape three times quickly toggles Assist mode.
+let escTimes = [];
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { const now = Date.now(); escTimes = escTimes.filter((t) => now - t < 1200); escTimes.push(now); if (escTimes.length >= 3) { escTimes = []; $('[data-act="assist"]')?.click(); } return; }
+  const tag = document.activeElement?.tagName;
+  if ((e.key === ' ' || e.key === 'Enter') && (!tag || tag === 'BODY') && $('#voice-btn')) { e.preventDefault(); $('#voice-btn').focus(); voiceStart($('#voice-btn')); }
+});
+document.addEventListener('keyup', (e) => { const tag = document.activeElement?.tagName; if ((e.key === ' ' || e.key === 'Enter') && document.activeElement === $('#voice-btn')) voiceEnd($('#voice-btn')); });

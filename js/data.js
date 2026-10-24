@@ -134,11 +134,30 @@ const POST_STATUS = {
 
 const REPORT_STATUS = {
   submitted:    'Submitted',
+  review:       'Held for review',
   routed:       'Routed',
+  pending:      'Awaiting staff verification',
   acknowledged: 'Acknowledged',
+  assigned:     'Assigned',
   in_progress:  'In progress',
   resolved:     'Fixed',
+  verified:     'Verified',
+  announced:    'Announced',
+  dismissed:    'Dismissed',
 };
+
+// Triage keywords. The AI decides the category from these; the reporter never picks it.
+const ALERT_KW = ['flood', 'flooding', 'spill', 'wet floor', 'smoke', 'gas smell', 'smell of gas', 'power outage', 'outage', 'blocked', 'closed', 'evacuat', 'hazard', 'unsafe', 'broken glass', 'exposed wire', 'sparking', 'alarm going off', 'ceiling fell', 'collapsed', 'ice ', 'slippery'];
+const EMERGENCY_KW = ['fire', 'weapon', 'gun', 'knife', 'shooting', 'shooter', 'someone is hurt', 'someone hurt', 'unconscious', 'not breathing', 'bleeding', 'medical emergency', 'attack', 'assault', 'explosion', 'chemical spill', 'overdose'];
+const SUGGESTION_KW = ['should', 'would be nice', 'would be great', 'wish', 'suggest', 'suggestion', 'idea', 'could we', 'can we get', 'please add', 'more ', 'needs more', 'feedback', 'what if', 'recommend'];
+const PRANK_KW = [' lol', ' jk', 'haha', 'lmao', 'test test', 'asdf', 'qwerty', 'ignore this', 'just kidding', 'troll', 'yolo', '69420'];
+
+// Campus alerts. verified = a staff member confirmed it and students were notified.
+const SEED_ALERTS = [
+  { id: 'a1', title: 'Water leak, 2nd floor restroom', building: 'wsh', detail: 'north restroom', severity: 'high', at: hoursAgo(3), status: 'verified', verifiedBy: 'FD&O', count: 4,
+    note: 'Restroom closed. Use the 1st floor restroom until repair is complete.' },
+  { id: 'a2', title: 'Exposed wiring near bike racks', building: 'eng', detail: 'east entrance', severity: 'high', at: hoursAgo(1), status: 'pending', count: 2, note: '' },
+];
 
 function hoursAgo(h) { return new Date(Date.now() - h * 3600e3).toISOString(); }
 function daysAgo(d)  { return hoursAgo(d * 24); }
