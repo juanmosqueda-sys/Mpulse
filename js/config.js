@@ -3,6 +3,6 @@
 const CONFIG = {
   GOOGLE_MAPS_KEY: (typeof CONFIG_LOCAL !== 'undefined' && CONFIG_LOCAL.GOOGLE_MAPS_KEY) || 'AIzaSyDQZ0VcKSeLPiEuI-Mmyhkc50CB0wCXlvg',
   MAP_PROVIDER: 'auto',   // 'auto' | 'google' | 'osm' | 'schematic'
-  AI: true,               // Gemini triage via the same key (needs "Generative Language API" enabled on the project)
-  GEMINI_KEY: '',         // optional separate key for Gemini; falls back to GOOGLE_MAPS_KEY
+  AI: true,               // Gemini triage. The key is NOT stored here: enter it on the device via hold-the-seal → Demo options.
+  GEMINI_KEY: '',         // leave empty in the repo; a local dev key can go in js/config.local.js (gitignored)
 };

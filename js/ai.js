@@ -2,9 +2,11 @@
 // Falls back to the keyword classifier in app.js when the API is off, slow, or unsure.
 
 const AI = (() => {
-  const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
-  const TIMEOUT_MS = 9000;
-  const key = () => (typeof CONFIG !== 'undefined' && (CONFIG.GEMINI_KEY || CONFIG.GOOGLE_MAPS_KEY)) || '';
+  const MODELS = ['gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
+  const TIMEOUT_MS = 12000;
+  // The Gemini key is never committed. It is entered once on the device (hold the seal → Demo options) and kept in localStorage.
+  const key = () => { try { return localStorage.getItem('mpulse-gemini-key') || (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } catch (e) { return (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } };
+  const setKey = (k) => { try { if (k) localStorage.setItem('mpulse-gemini-key', k.trim()); else localStorage.removeItem('mpulse-gemini-key'); } catch (e) { /* ignore */ } };
   const enabled = () => !!key() && (typeof CONFIG === 'undefined' || CONFIG.AI !== false);
 
   function prompt() {
@@ -28,8 +30,8 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key())}`, {
-        method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key() },
         body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json' } }),
       });
       if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 200));
@@ -72,5 +74,5 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
     return null;
   }
 
-  return { triage, enabled, lastError: null };
+  return { triage, enabled, setKey, hasKey: () => !!key(), lastError: null };
 })();
