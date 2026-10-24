@@ -217,6 +217,7 @@ function render() {
   window.scrollTo(0, 0);
   const v = state.view;
   el.classList.toggle('has-footer', v === 'review');
+  MapKit.preserve(el);   // keep live maps alive across the redraw
   el.innerHTML = v === 'home' ? Home() : v === 'review' ? Review() : v === 'community' ? Community() : v === 'post' ? PostDetail() : Mine();
   document.querySelectorAll('.tab').forEach((t) => {
     const cur = t.dataset.go === v || (v === 'post' && t.dataset.go === 'community') || (v === 'review' && t.dataset.go === 'snap' && state.draft?.source === 'photo');
@@ -564,7 +565,8 @@ let aiSeq = 0;
 async function refineWithAI(d) {
   if (!AI.enabled() || !d) return;
   const seq = ++aiSeq;
-  d.ai = 'thinking'; render();
+  d.ai = 'thinking';
+  const spot = document.querySelector('.triage'); if (spot && !document.querySelector('#ai-status')) spot.insertAdjacentHTML('beforebegin', `<div id="ai-status" class="row" style="gap:8px;font-size:13px;color:var(--ink-2)"><span class="spin" aria-hidden="true"></span>AI is reading your ${d.photo ? 'photo' : 'report'}…</div>`);
   const r = await AI.triage({ text: d.text, photo: d.photo });
   if (seq !== aiSeq || state.draft !== d) return;        // a newer draft replaced this one
   if (!r) { d.ai = 'off'; d.aiError = AI.lastError; render(); return; }
@@ -629,14 +631,21 @@ function loudAlert(text) {
 function openDemoOptions() {
   buzz(40);
   sheet(`
-    <div class="stack" style="gap:4px"><h2 style="font-size:18px">Demo options</h2><span class="muted">Map: ${MapKit.current() || 'loading'}</span></div>
+    <div class="stack" style="gap:4px"><h2 style="font-size:18px">Demo options</h2><span class="muted">AI: ${AI.hasKey() ? 'on' : 'off — enter a key below'} · Map: ${MapKit.current() || 'loading'}</span></div>
+    <form class="stack" id="gemini-form" style="gap:6px">
+      <label class="eyebrow" for="gemini-key">Gemini API key (stays on this device)</label>
+      <input class="field" id="gemini-key" type="password" autocomplete="off" placeholder="${AI.hasKey() ? 'Key saved · paste a new one to replace' : 'Paste key from aistudio.google.com'}">
+      <div class="row" style="gap:8px"><button class="btn primary" type="submit" style="height:36px">Save key</button>${AI.hasKey() ? '<button class="btn ghost" type="button" data-demo="clearkey" style="height:36px">Remove key</button>' : ''}</div>
+    </form>
     <div class="stack" style="gap:8px">
       <button class="btn ghost big" data-demo="reset">Reset to fresh demo state</button>
       <button class="btn ghost big" data-demo="alert">Fire a sample campus alert</button>
     </div>`);
+  $('#gemini-form').addEventListener('submit', (e) => { e.preventDefault(); const k = $('#gemini-key').value.trim(); if (!k) return; AI.setKey(k); closeSheet(); toast('Key saved on this device'); });
   $('#sheet').querySelectorAll('[data-demo]').forEach((b) => b.addEventListener('click', () => {
     closeSheet();
-    if (b.dataset.demo === 'reset') { try { ['mpulse-campus', 'eaiser-campus', 'eaiser-map', 'mpulse-gemini-key'].forEach((k) => localStorage.removeItem(k)); } catch (e) { /* ignore */ } location.reload(); }
+    if (b.dataset.demo === 'clearkey') { AI.setKey(''); toast('Key removed'); return; }
+    if (b.dataset.demo === 'reset') { try { ['mpulse-campus', 'eaiser-campus', 'eaiser-map'].forEach((k) => localStorage.removeItem(k)); } catch (e) { /* ignore */ } location.reload(); }
     if (b.dataset.demo === 'alert') { const a = state.alerts.find((x) => x.status === 'pending'); if (a) staffVerifyAlert(a.id); else loudAlert('Test alert. This is what a verified hazard sounds like.'); }
   }));
 }

@@ -114,6 +114,7 @@ const MapKit = (() => {
     const sel = selected ? BUILDINGS.find((b) => b.id === selected) : null;
     const map = L.map(host, { zoomControl: false, attributionControl: true, scrollWheelZoom: false, tap: true })
       .setView(sel ? [sel.lat, sel.lng] : [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng], sel ? 18 : 17);
+    host._leaflet_map = map;
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
     const dot = (b, color, label, big) => {
       const m = L.circleMarker([b.lat, b.lng], { radius: big ? 11 : 8, color: '#14213D', weight: 2, fillColor: color, fillOpacity: 0.95 }).addTo(map);
@@ -126,12 +127,26 @@ const MapKit = (() => {
     setTimeout(() => map.invalidateSize(), 50);
   }
 
+  // Live map hosts are detached before a redraw and re-attached if the new view asks for the same map,
+  // so a re-render (e.g. the AI answer arriving) doesn't rebuild the 3D map and re-download its tiles.
+  const kept = new Map();
+  const sig = (host) => host.dataset.map || '';
+  function preserve(root) {
+    root.querySelectorAll('.map-host[data-provider]').forEach((h) => { kept.set(sig(h), h); h.remove(); });
+  }
+
   // Mount every .map-host in the current view. Called after render().
   async function mountAll(onPick) {
     const hosts = document.querySelectorAll('.map-host');
-    if (!hosts.length) return;
+    if (!hosts.length) { kept.clear(); return; }
     const p = await ensure();
     for (const host of hosts) {
+      const k = kept.get(sig(host));
+      if (k && k.dataset.provider === p && host.isConnected) {
+        host.replaceWith(k); kept.delete(sig(host));
+        if (p === 'osm' && k._leaflet_map) setTimeout(() => k._leaflet_map.invalidateSize(), 50);
+        continue;
+      }
       const opts = JSON.parse(host.dataset.map || '{}');
       opts.onPick = onPick; opts.height = opts.height || 220;
       if (p === 'schematic') { host.outerHTML = campusMap(opts); continue; }
@@ -146,12 +161,13 @@ const MapKit = (() => {
         }
       } catch (e) { console.warn('map mount failed', e); host.outerHTML = campusMap(opts); }
     }
+    kept.clear();
   }
 
   const providerLabel = () => ({ google: 'Google Maps 3D', osm: 'OpenStreetMap', schematic: 'Schematic' }[provider] || '');
   function setProvider(p) { try { localStorage.setItem('eaiser-map', p); } catch (e) { /* ignore */ } provider = null; loading = null; }
   const current = () => provider;
-  return { mountAll, providerLabel, ensure, setProvider, current };
+  return { mountAll, preserve, providerLabel, ensure, setProvider, current };
 })();
 
 // Placeholder the view renders; MapKit.mountAll() replaces it with the live map.

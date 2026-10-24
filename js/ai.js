@@ -3,7 +3,7 @@
 
 const AI = (() => {
   const MODELS = ['gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
-  const TIMEOUT_MS = 12000;
+  const TIMEOUT_MS = 15000;
   // The Gemini key is never committed. It is entered once on the device (hold the seal → Demo options) and kept in localStorage.
   const key = () => { try { return localStorage.getItem('mpulse-gemini-key') || (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } catch (e) { return (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } };
   const setKey = (k) => { try { if (k) localStorage.setItem('mpulse-gemini-key', k.trim()); else localStorage.removeItem('mpulse-gemini-key'); } catch (e) { /* ignore */ } };
@@ -51,7 +51,11 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
       if (m) parts.push({ inlineData: { mimeType: m[1], data: m[2] } });
     }
     let lastErr = null;
-    for (const model of MODELS) {
+    // Each model gets two tries; a 503 ("high demand") usually clears within a second or two.
+    const attempts = MODELS.flatMap((m) => [m, m]);
+    for (let i = 0; i < attempts.length; i++) {
+      const model = attempts[i];
+      if (i % 2 === 1) await new Promise((r) => setTimeout(r, 1500));
       try {
         const r = await call(model, parts);
         const typeOk = ISSUE_TYPES.some((t) => t.id === r.type);
