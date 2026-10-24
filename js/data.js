@@ -68,6 +68,7 @@ const BUILDINGS = [
   { id: 'cyb',  name: 'Corporation Yard (CYB)',    abbr: 'CYB', lat: 37.338156, lng: -121.879690, x: 76, y: 2, w: 10, h: 6, kw: ['corporation yard', 'corp yard', 'cyb', 'facilities yard'] },
   { id: 'cya',  name: 'Corporation Yard A (CYA)',  abbr: 'CYA', lat: 37.338124, lng: -121.880343, x: 66, y: 2, w: 10, h: 6, kw: ['cya', 'corporation yard a'] },
   { id: 'npg',  name: 'North Parking Garage / Services Center', abbr: 'NPG', lat: 37.339158, lng: -121.880763, x: 64, y: -6, w: 14, h: 8, kw: ['north garage', 'north parking', 'npg', 'services center', 'student services'] },
+  { id: 'is',   name: 'Industrial Studies (IS)',   abbr: 'IS',  lat: 37.337496, lng: -121.880939, x: 58, y: 12, w: 10, h: 8, kw: ['industrial studies', ' is ', 'engineering technology', 'manufacturing lab'] },
   { id: 'paseo',name: 'Paseo de San Carlos',       abbr: 'Paseo', lat: 37.334435, lng: -121.880655, x: 36, y: 48, w: 40, h: 5, path: true, kw: ['paseo', 'san carlos'] },
 ];
 
