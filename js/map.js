@@ -7,7 +7,8 @@ const MapKit = (() => {
   let loading = null;
 
   function pick() {
-    const want = (typeof CONFIG !== 'undefined' && CONFIG.MAP_PROVIDER) || 'auto';
+    let want = (typeof CONFIG !== 'undefined' && CONFIG.MAP_PROVIDER) || 'auto';
+    try { const o = localStorage.getItem('eaiser-map'); if (o === 'osm' || o === 'google') want = o; } catch (e) { /* ignore */ }
     if (want !== 'auto') return want;
     return (typeof CONFIG !== 'undefined' && CONFIG.GOOGLE_MAPS_KEY) ? 'google' : 'osm';
   }
@@ -69,18 +70,20 @@ const MapKit = (() => {
     const map = new Map3DElement({ center, range: sel ? 420 : 760, tilt: 67, heading: 25, mode: 'HYBRID', defaultUIHidden: true });
     map.style.width = '100%'; map.style.height = height + 'px';
     host.replaceChildren(map);
-    // If the device can't render 3D (no WebGL, or Map Tiles API not enabled on the key), drop to the 2D map.
-    let steady = false;
-    map.addEventListener('gmp-steadychange', (e) => { if (e.isSteady) steady = true; });
+    // Fall back to 2D only if the 3D map shows no life at all for 30 s (no steady/center events and no tiles drawn).
+    let alive = false;
+    ['gmp-steadychange', 'gmp-centerchange', 'gmp-rangechange', 'gmp-headingchange'].forEach((ev) => map.addEventListener(ev, () => { alive = true; }));
     setTimeout(async () => {
-      if (steady || !host.isConnected) return;
-      console.warn('3D map did not become ready; falling back to OpenStreetMap');
+      if (!host.isConnected) return;
+      const canvas = map.shadowRoot && map.shadowRoot.querySelector('canvas');
+      if (alive || (canvas && canvas.width > 0)) return;
+      console.warn('3D map showed no activity in 30 s; falling back to OpenStreetMap');
       try {
         loadCss('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css');
         if (!window.L) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js');
         mountOsm(host, { selected, pins, interactive, onPick, height }); host.dataset.provider = 'osm';
       } catch (err) { host.outerHTML = campusMap({ selected, pins, interactive, height }); }
-    }, 9000);
+    }, 30000);
 
     const addMarker = (b, color, label, big) => {
       const m = new (interactive ? Marker3DInteractiveElement : Marker3DElement)({
@@ -135,12 +138,20 @@ const MapKit = (() => {
       try {
         if (p === 'google') await mountGoogle(host, opts); else mountOsm(host, opts);
         host.dataset.provider = p;
+        if (typeof CONFIG !== 'undefined' && CONFIG.GOOGLE_MAPS_KEY) {
+          const t = document.createElement('button');
+          t.className = 'map-toggle'; t.type = 'button'; t.textContent = p === 'google' ? '2D' : '3D'; t.setAttribute('aria-label', p === 'google' ? 'Switch to 2D map' : 'Switch to 3D map');
+          t.addEventListener('click', () => { setProvider(p === 'google' ? 'osm' : 'google'); if (typeof render === 'function') render(); });
+          host.appendChild(t);
+        }
       } catch (e) { console.warn('map mount failed', e); host.outerHTML = campusMap(opts); }
     }
   }
 
   const providerLabel = () => ({ google: 'Google Maps 3D', osm: 'OpenStreetMap', schematic: 'Schematic' }[provider] || '');
-  return { mountAll, providerLabel, ensure };
+  function setProvider(p) { try { localStorage.setItem('eaiser-map', p); } catch (e) { /* ignore */ } provider = null; loading = null; }
+  const current = () => provider;
+  return { mountAll, providerLabel, ensure, setProvider, current };
 })();
 
 // Placeholder the view renders; MapKit.mountAll() replaces it with the live map.

@@ -61,8 +61,9 @@ function classify(text) {
     if (b.kw.some((k) => t.includes(k))) { building = b; break; }
   }
   let detail = '';
-  const floor = t.match(/(\d+)(?:st|nd|rd|th)\s*floor/);
-  if (floor) detail = `${floor[1]}${['st','nd','rd'][floor[1]-1] || 'th'} floor`;
+  const ORD = { first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10, ground: 1 };
+  const floor = t.match(/(\d+)(?:st|nd|rd|th)?\s*floor/) || t.match(/\b(first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|ground)\s*floor/);
+  if (floor) { const n = ORD[floor[1]] || parseInt(floor[1], 10); detail = `${n}${['st','nd','rd'][n-1] || 'th'} floor`; }
   const room = t.match(/\broom\s*(\w+)/);
   if (room) detail = (detail ? detail + ', ' : '') + 'room ' + room[1].toUpperCase();
   // --- triage: the AI, not the reporter, decides the category ---
@@ -310,18 +311,24 @@ function clusterTitle(c) {
 
 function Review() {
   const d = state.draft;
+  // A draft started from the camera has no text yet; give it the default triage fields until a description arrives.
+  if (!d.category) Object.assign(d, { category: 'fix', trust: 'ok', reasons: [], emergency: false });
   const t = typeById(d.type), b = d.building ? bldgById(d.building) : null, dept = deptById(t.dept);
   const cluster = d.building ? findCluster(d.type, d.building) : null;
   const sev = d.severity;
-  const chips = ISSUE_TYPES.filter((x) => x.id !== 'other')
-    .map((x) => `<button type="button" class="chip" data-type="${x.id}" aria-pressed="${x.id === d.type}">${esc(x.label)}</button>`).join('');
+  const typeBlock = d.confident
+    ? `<div class="row between"><div><div class="eyebrow">Issue type</div><div style="font-size:14px;font-weight:600">${esc(t.label)}</div></div><span class="pill blue">AI</span></div>`
+    : `<div class="stack" style="gap:6px"><div class="row between"><div><div class="eyebrow">Issue type</div><div style="font-size:14px;font-weight:600;color:var(--gold-text)">Not sure yet</div></div><span class="pill gold">Needs detail</span></div>
+       <label class="eyebrow" for="more-detail">Tell the AI more</label>
+       <input class="field" id="more-detail" placeholder="e.g. the elevator door won't close" value="">
+       <span class="muted small">It re-reads your description and picks the type and department itself.</span></div>`;
   const bOpts = `<option value="">Choose a building…</option>` + BUILDINGS.map((x) => `<option value="${x.id}" ${x.id === d.building ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
   const photo = d.photo
     ? `<div class="photo"><img src="${d.photo}" alt="Your photo of the issue"><span class="cap">Photo attached</span><button type="button" class="retake" data-act="retake">Retake</button></div>`
     : d.source === 'photo'
       ? `<div class="photo" style="flex-direction:column;gap:8px"><span style="opacity:.9;font-size:12px;font-weight:600">No photo yet</span><button type="button" class="retake" data-act="retake" style="position:static">Open camera</button></div>`
       : '';
-  const srcLabel = { text: 'Typed', voice: 'Voice transcript', photo: 'Photo' }[d.source];
+  const srcLabel = ({ text: 'Typed', voice: d.sample ? 'Sample transcript (mic unavailable)' : 'Voice transcript', photo: 'Photo' })[d.source];
   const cat = CATEGORY[d.category];
   const hintNote = d.hint && d.hint !== d.category ? `<span class="muted small">You said "${esc(CATEGORY[d.hint].short.toLowerCase())}". The AI filed it as ${esc(cat.short.toLowerCase())} instead, based on what you described.</span>` : '';
   const triage = `<div class="card pad stack triage ${cat.tone}" style="gap:6px">
@@ -344,10 +351,10 @@ function Review() {
   ${photo}
   ${d.seeDesc ? `<div class="card pad stack" style="gap:4px;border-color:var(--blue)"><span class="eyebrow blue">What the AI sees</span><p style="font-size:14px">${esc(d.seeDesc)}</p></div>` : ''}
   ${d.text ? `<div class="card pad stack" style="gap:4px"><span class="eyebrow">${esc(srcLabel)}</span><p style="font-size:14px">${esc(d.text)}</p></div>` : ''}
-  <div class="row" style="gap:8px"><span style="color:var(--blue)">${ICONS.spark}</span><span style="font-size:13px;font-weight:600;color:var(--blue)">${d.confident ? 'AI filled the details. Tap anything to change it.' : 'Tell us the type and building so we can route it.'}</span></div>
+  <div class="row" style="gap:8px"><span style="color:var(--blue)">${ICONS.spark}</span><span style="font-size:13px;font-weight:600;color:var(--blue)">${d.confident ? 'AI identified the issue and department. You can only correct the location.' : 'The AI needs a bit more to identify this.'}</span></div>
   ${triage}
   <div class="card pad stack">
-    <div class="stack" style="gap:8px"><span class="eyebrow">Issue type</span><div class="chips">${chips}</div></div>
+    ${typeBlock}
     <div class="hr"></div>
     <div class="stack" style="gap:8px">
       <div class="row between"><span class="eyebrow">Location</span>${d.building && d.autoBuilding ? `<span class="pill green">${d.source === 'photo' ? 'From photo GPS' : 'Matched from text'}</span>` : d.building ? '' : '<span class="pill gold">Tap a building</span>'}</div>
@@ -372,7 +379,7 @@ function Review() {
   <div class="footer-cta">
     <div class="row" style="gap:8px">
       <button class="btn ghost" style="height:54px;border-radius:16px;padding:0 14px" data-act="readback" aria-label="Read this report back to me">${ICONS.speaker}</button>
-      <button class="btn primary big" id="submit-report" ${d.building || d.category === 'suggestion' || d.trust === 'review' ? '' : 'disabled'}>${d.trust === 'review' ? 'Submit for review' : d.category === 'alert' ? 'Submit alert' : d.category === 'suggestion' ? 'Post suggestion' : 'Submit work order'} ${ICONS.arrow}</button>
+      <button class="btn primary big" id="submit-report" ${(d.building && (d.confident || d.category !== 'fix')) || d.category === 'suggestion' || d.trust === 'review' ? '' : 'disabled'}>${d.trust === 'review' ? 'Submit for review' : d.category === 'alert' ? 'Submit alert' : d.category === 'suggestion' ? 'Post suggestion' : 'Submit work order'} ${ICONS.arrow}</button>
     </div>
     <span class="muted" style="text-align:center;font-size:11px">Prototype privacy note: your name is intended to be shared only with the department, never with other students.</span>
   </div>`;
@@ -756,35 +763,68 @@ function openNewPost() {
 
 // voice: this runs inside a sandbox that refuses the microphone, so the demo transcribes a sample.
 let holdTimer = null;
+// Real speech recognition where the browser offers it (Safari 14.5+, Chrome, Edge). Needs HTTPS and a mic permission.
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+const rec = { obj: null, finalText: '', interim: '', active: false, failed: false };
 function voiceStart(btn) {
   btn.classList.add('listening');
   $('.t', btn).textContent = 'Listening…';
-  $('.s', btn).textContent = 'Release to send';
+  $('.s', btn).textContent = SR ? 'Release when you\'re done' : 'Release to send';
   holdTimer = Date.now();
+  rec.finalText = ''; rec.interim = ''; rec.active = false; rec.failed = false;
+  if (!SR) return;
+  try {
+    const r = new SR(); rec.obj = r;
+    r.lang = 'en-US'; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+    r.onresult = (e) => {
+      let fin = '', inter = '';
+      for (let i = 0; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) fin += t + ' '; else inter += t; }
+      rec.finalText = fin.trim(); rec.interim = inter.trim();
+      const shown = (rec.finalText + ' ' + rec.interim).trim();
+      if (shown) $('.s', btn).textContent = '“' + shown + '”';
+    };
+    r.onerror = (e) => { rec.failed = true; rec.err = e.error; };
+    r.onend = () => { rec.active = false; if (rec.pendingFinish) { rec.pendingFinish = false; finishVoice(btn); } };
+    r.start(); rec.active = true;
+  } catch (e) { rec.failed = true; rec.err = String(e); }
 }
 function voiceEnd(btn) {
   if (!btn.classList.contains('listening')) return;
   btn.classList.remove('listening');
   const held = (Date.now() - holdTimer) / 1000;
   $('.t', btn).textContent = 'Hold to talk';
+  if (held < 0.4) { $('.s', btn).textContent = "Say what's wrong and where. We transcribe and route it."; try { rec.obj && rec.obj.abort(); } catch (e) { /* ignore */ } toast('Hold the button while you talk'); return; }
+  if (SR && rec.obj && rec.active && !rec.failed) {
+    $('.s', btn).textContent = 'Transcribing…';
+    rec.pendingFinish = true;
+    try { rec.obj.stop(); } catch (e) { rec.pendingFinish = false; finishVoice(btn); }
+    setTimeout(() => { if (rec.pendingFinish) { rec.pendingFinish = false; finishVoice(btn); } }, 2500);
+    return;
+  }
+  finishVoice(btn);
+}
+function finishVoice(btn) {
+  const held = (Date.now() - holdTimer) / 1000;
   $('.s', btn).textContent = "Say what's wrong and where. We transcribe and route it.";
-  if (held < 0.4) { toast('Hold the button while you talk'); return; }
+  const heard = (rec.finalText || rec.interim || '').trim();
+  buzz(30);
+  if (heard) { handleUtterance(heard, 'voice', { seconds: Math.max(1, Math.round(held)) }); return; }
+  if (SR && !rec.failed) { toast("Didn't catch that. Hold the button and speak, then release."); speak("I didn't catch that. Try again."); return; }
+  // No speech API (or mic denied): fall back to a sample so the demo still works, and say so.
+  const why = rec.err === 'not-allowed' || rec.err === 'service-not-allowed' ? 'Microphone blocked' : 'No speech recognition in this browser';
+  toast(why + ' · using a sample sentence');
   const samples = speech.assist ? [
     'Report this problem. The ramp at the Student Union east entrance is blocked by a scooter pile',
     'Alert students about this. There is water flooding the second floor hallway of Washburn Hall',
     'Suggest an improvement. The library should keep the 6th floor open until midnight during finals',
     'What are the alerts',
-    'The elevator in Clark Hall is out again, second floor',
   ] : [
     'The elevator in Clark Hall is out again, second floor',
     'None of the outlets on the 6th floor of the library work',
-    'Printer on the first floor of Engineering has no toner',
     'There is water flooding the second floor hallway of Washburn Hall',
     'Go to my reports',
   ];
-  const text = samples[Math.floor(Math.random() * samples.length)];
-  buzz(30);
-  handleUtterance(text, 'voice', { seconds: Math.max(3, Math.round(held)) });
+  handleUtterance(samples[Math.floor(Math.random() * samples.length)], 'voice', { seconds: Math.max(3, Math.round(held)), sample: true });
 }
 
 function sheet(html) {
@@ -836,7 +876,14 @@ function bind() {
     startDraft(`${clusterTitle(c)} at ${bldgById(c.building).name}`, 'text', { type: c.type, building: c.building, detail: c.detail, autoBuilding: true, confident: true, severity: typeById(c.type).severity });
   }));
 
-  el.querySelectorAll('[data-type]').forEach((b) => b.addEventListener('click', () => { state.draft.type = b.dataset.type; state.draft.severity = typeById(b.dataset.type).severity; render(); }));
+  const more = $('#more-detail');
+  if (more) more.addEventListener('change', () => {
+    const extra = more.value.trim(); if (!extra) return;
+    const d = state.draft; const text = (d.text ? d.text + '. ' : '') + extra;
+    const c = classify(text);
+    Object.assign(d, { text, type: c.type, severity: c.severity, confident: c.confident, category: c.category, trust: c.trust, reasons: c.reasons, emergency: c.emergency, building: d.building || c.building, autoBuilding: d.building ? d.autoBuilding : !!c.building, detail: d.detail || c.detail });
+    render(); speak(c.confident ? `Got it. ${typeById(c.type).label}, ${CATEGORY[c.category].label}.` : 'Still not sure. Add where it is and what is wrong.');
+  });
   const bldg = $('#bldg');
   if (bldg) bldg.addEventListener('change', () => { state.draft.building = bldg.value || null; state.draft.autoBuilding = false; render(); });
   const det = $('#detail');
