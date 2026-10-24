@@ -769,27 +769,42 @@ let holdTimer = null;
 // Real speech recognition where the browser offers it (Safari 14.5+, Chrome, Edge). Needs HTTPS and a mic permission.
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 const rec = { obj: null, finalText: '', interim: '', active: false, failed: false };
+let micGranted = false;
+async function ensureMic() {
+  if (micGranted) return true;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true; // let SR try on its own
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());
+    micGranted = true; return true;
+  } catch (e) { rec.failed = true; rec.err = e.name === 'NotAllowedError' ? 'not-allowed' : (e.name || String(e)); return false; }
+}
 function voiceStart(btn) {
   btn.classList.add('listening');
   $('.t', btn).textContent = 'Listening…';
   $('.s', btn).textContent = SR ? 'Release when you\'re done' : 'Release to send';
   holdTimer = Date.now();
-  rec.finalText = ''; rec.interim = ''; rec.active = false; rec.failed = false;
+  rec.finalText = ''; rec.interim = ''; rec.active = false; rec.failed = false; rec.err = null;
   if (!SR) return;
-  try {
-    const r = new SR(); rec.obj = r;
-    r.lang = 'en-US'; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
-    r.onresult = (e) => {
-      let fin = '', inter = '';
-      for (let i = 0; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) fin += t + ' '; else inter += t; }
-      rec.finalText = fin.trim(); rec.interim = inter.trim();
-      const shown = (rec.finalText + ' ' + rec.interim).trim();
-      if (shown) $('.s', btn).textContent = '“' + shown + '”';
-    };
-    r.onerror = (e) => { rec.failed = true; rec.err = e.error; };
-    r.onend = () => { rec.active = false; if (rec.pendingFinish) { rec.pendingFinish = false; finishVoice(btn); } };
-    r.start(); rec.active = true;
-  } catch (e) { rec.failed = true; rec.err = String(e); }
+  const startSR = () => {
+    try {
+      const r = new SR(); rec.obj = r;
+      r.lang = 'en-US'; r.continuous = false; r.interimResults = true; r.maxAlternatives = 1;
+      r.onresult = (e) => {
+        let fin = '', inter = '';
+        for (let i = 0; i < e.results.length; i++) { const t = e.results[i][0].transcript; if (e.results[i].isFinal) fin += t + ' '; else inter += t; }
+        rec.finalText = fin.trim(); rec.interim = inter.trim();
+        const shown = (rec.finalText + ' ' + rec.interim).trim();
+        if (shown) $('.s', btn).textContent = '\u201c' + shown + '\u201d';
+      };
+      r.onerror = (e) => { rec.failed = true; rec.err = e.error; };
+      r.onend = () => { rec.active = false; if (rec.pendingFinish) { rec.pendingFinish = false; finishVoice(btn); } };
+      r.start(); rec.active = true;
+    } catch (e) { rec.failed = true; rec.err = String(e); }
+  };
+  // Start recognition inside the gesture; ask for the mic explicitly the first time so iOS shows its prompt.
+  if (micGranted) startSR();
+  else ensureMic().then((ok) => { if (ok && btn.classList.contains('listening')) startSR(); });
 }
 function voiceEnd(btn) {
   if (!btn.classList.contains('listening')) return;
@@ -815,7 +830,7 @@ function finishVoice(btn) {
   if (SR && !rec.failed) { toast("Didn't catch that. Hold the button and speak, then release."); speak("I didn't catch that. Try again."); return; }
   // No speech API, or the mic was denied: say so plainly and let the person choose what to do.
   const blocked = rec.err === 'not-allowed' || rec.err === 'service-not-allowed';
-  const why = !SR ? "This browser has no speech recognition." : blocked ? 'The microphone is blocked for this page.' : "The microphone didn't start (" + (rec.err || 'unknown') + ').';
+  const why = !SR ? "This browser has no speech recognition." : blocked ? 'The microphone is blocked for this page (' + rec.err + '). Check Settings → Apps → Safari → Microphone, and that Dictation is enabled.' : "The microphone didn't start (" + (rec.err || 'no error reported') + ').';
   sheet(`
     <div class="stack" style="gap:6px"><h2 style="font-size:18px">Couldn\'t hear you</h2><span class="muted">${esc(why)} Opening this page in Safari or Chrome and allowing the microphone fixes it. Until then:</span></div>
     <div class="stack" style="gap:8px">
