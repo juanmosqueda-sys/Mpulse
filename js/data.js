@@ -42,7 +42,7 @@ const BUILDINGS = [
   { id: 'art',  name: 'Art Building',              abbr: 'ART', lat: 37.335949, lng: -121.879799, x: 52, y: 66, w: 14, h: 12, kw: ['art building', 'art '] },
   { id: 'spx',  name: 'Spartan Complex (SPX)',     abbr: 'SPX', lat: 37.333600, lng: -121.882100, x: 30, y: 84, w: 22, h: 10, kw: ['spx', 'spartan complex'] },
   { id: 'wsq',  name: 'Washington Square Hall',    abbr: 'WSQ', lat: 37.334277, lng: -121.884026, x: 14, y: 58, w: 12, h: 10, kw: ['washington square', 'wsq'] },
-  { id: 'wsh',  name: 'Washburn Hall',             abbr: 'WSH', lat: 37.333650, lng: -121.879342, x: 80, y: 52, w: 12, h: 10, kw: ['washburn', 'wsh'] },
+  { id: 'wsh',  name: 'Washburn Hall',             abbr: 'WSH', lat: 37.333733, lng: -121.879434, x: 80, y: 52, w: 12, h: 10, kw: ['washburn', 'wsh'] },
   { id: 'cv',   name: 'Campus Village',            abbr: 'CV',  lat: 37.333400, lng: -121.877500, x: 72, y: 72, w: 20, h: 18, kw: ['campus village', 'cvb', 'cva', 'cvc'] },
   { id: 'hgh',  name: 'Hugh Gillis Hall',           abbr: 'HGH', lat: 37.336064, lng: -121.884561, x: 22, y: 20, w: 10, h: 8, kw: ['hugh gillis', 'hgh'] },
   { id: 'yuh',  name: 'Yoshihiro Uchida Hall',      abbr: 'YUH', lat: 37.333807, lng: -121.883971, x: 10, y: 62, w: 12, h: 8, kw: ['uchida', 'yuh'] },
