@@ -21,7 +21,7 @@ const AI = (() => {
     return `You triage campus maintenance and safety reports for San José State University.
 Given the report (text, and a photo if attached), decide — the reporter never chooses these:
 - category: "fix" (something broken that a department repairs), "alert" (a hazard other people need to be warned about right now, e.g. flooding, exposed wiring, blocked exit, smoke), or "suggestion" (an idea or feedback, nothing is broken).
-- type: one id from this list that best matches: ${types}. Use "other" only if nothing fits.
+- type: one id from this list that best matches: ${types}. Chairs, desks, tables and whiteboards are "furniture" (Facilities); "classroom" is only projectors, screens and podium tech (IT). Use "other" only if nothing fits.
 - building: one id from this list if the text or photo indicates it, else null: ${blds}.
 - detail: short location detail inside the building (floor, room, side) or "".
 - severity: "low" | "medium" | "high" | "critical" (critical = immediate danger to life).
