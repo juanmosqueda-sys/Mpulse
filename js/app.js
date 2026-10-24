@@ -1,4 +1,4 @@
-// EAiSER Campus — app logic. Vanilla JS, no build step.
+// Mpulse — SJSU campus issue reporting. Vanilla JS, no build step.
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -18,7 +18,7 @@ const state = {
 
 function load() {
   try {
-    const raw = localStorage.getItem('eaiser-campus');
+    const raw = localStorage.getItem('mpulse-campus') || localStorage.getItem('eaiser-campus');
     if (!raw) return;
     const saved = JSON.parse(raw);
     state.reports = saved.reports || [];
@@ -37,7 +37,7 @@ function load() {
 }
 function save() {
   try {
-    localStorage.setItem('eaiser-campus', JSON.stringify({
+    localStorage.setItem('mpulse-campus', JSON.stringify({
       reports: state.reports, votes: state.votes, user: state.user, alerts: state.alerts,
       newPosts: state.posts.filter((p) => !SEED_POSTS.some((x) => x.id === p.id)),
       posts: state.posts.map(({ id, up, down, status, updates }) => ({ id, up, down, status, updates })),
@@ -224,7 +224,7 @@ function header(title, sub) {
   <div class="topbar">
     <div class="brand">
       <div class="seal"><img src="assets/sjsu-seal.png" alt="San José State University seal"></div>
-      <div><div class="brand-name">EAiSER <span>Campus</span></div><div class="brand-sub">San José State University</div></div>
+      <div><div class="brand-name">Mpulse <span>Campus</span></div><div class="brand-sub">San José State University</div></div>
     </div>
     <div class="row" style="gap:8px">
       <button class="icon-btn" aria-label="${speech.assist ? 'Turn off Assist mode' : 'Turn on Assist mode (voice-first, high contrast)'}" aria-pressed="${speech.assist}" data-act="assist" ${speech.assist ? 'style="background:var(--gold);color:#14213D;border-color:var(--gold)"' : ''}>${ICONS.speaker}</button>
@@ -313,7 +313,7 @@ function Review() {
   const t = typeById(d.type), b = d.building ? bldgById(d.building) : null, dept = deptById(t.dept);
   const cluster = d.building ? findCluster(d.type, d.building) : null;
   const sev = d.severity;
-  const chips = ISSUE_TYPES.filter((x) => ['elevator','door','outlet','hvac','lighting','plumbing','wifi','printer','safety','other'].includes(x.id))
+  const chips = ISSUE_TYPES.filter((x) => x.id !== 'other')
     .map((x) => `<button type="button" class="chip" data-type="${x.id}" aria-pressed="${x.id === d.type}">${esc(x.label)}</button>`).join('');
   const bOpts = `<option value="">Choose a building…</option>` + BUILDINGS.map((x) => `<option value="${x.id}" ${x.id === d.building ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
   const photo = d.photo
@@ -360,8 +360,8 @@ function Review() {
     </div>
     <div class="hr"></div>
     <div class="row between">
-      <div><div class="eyebrow">Severity</div><div style="font-size:14px;font-weight:600">${sev === 'high' ? 'Blocks access or safety' : sev === 'medium' ? 'Disrupts work' : 'Cosmetic'}</div></div>
-      <span class="pill ${sev === 'high' ? 'red' : sev === 'medium' ? 'gold' : 'neutral'}">${sev[0].toUpperCase() + sev.slice(1)}</span>
+      <div><div class="eyebrow">Severity</div><div style="font-size:14px;font-weight:600">${sev === 'critical' ? 'Immediate safety response' : sev === 'high' ? 'Blocks access or safety' : sev === 'medium' ? 'Disrupts work or learning' : 'Routine maintenance'}</div></div>
+      <span class="pill ${sev === 'critical' || sev === 'high' ? 'red' : sev === 'medium' ? 'gold' : 'neutral'}">${sev[0].toUpperCase() + sev.slice(1)}</span>
     </div>
   </div>
   ${cluster ? `<div class="match">
@@ -374,7 +374,7 @@ function Review() {
       <button class="btn ghost" style="height:54px;border-radius:16px;padding:0 14px" data-act="readback" aria-label="Read this report back to me">${ICONS.speaker}</button>
       <button class="btn primary big" id="submit-report" ${d.building || d.category === 'suggestion' || d.trust === 'review' ? '' : 'disabled'}>${d.trust === 'review' ? 'Submit for review' : d.category === 'alert' ? 'Submit alert' : d.category === 'suggestion' ? 'Post suggestion' : 'Submit work order'} ${ICONS.arrow}</button>
     </div>
-    <span class="muted" style="text-align:center;font-size:11px">Your name is shared only with the department, never with other students.</span>
+    <span class="muted" style="text-align:center;font-size:11px">Prototype privacy note: your name is intended to be shared only with the department, never with other students.</span>
   </div>`;
 }
 
@@ -841,7 +841,7 @@ function bind() {
   if (bldg) bldg.addEventListener('change', () => { state.draft.building = bldg.value || null; state.draft.autoBuilding = false; render(); });
   const det = $('#detail');
   if (det) det.addEventListener('input', () => { state.draft.detail = det.value; });
-  el.querySelectorAll('[data-act="retake"]').forEach((b) => b.addEventListener('click', () => $('#photo-input').click()));
+  el.querySelectorAll('[data-act="retake"]').forEach((b) => b.addEventListener('click', () => openPhotoChooser(true)));
   const sub = $('#submit-report');
   if (sub) sub.addEventListener('click', submitReport);
 
@@ -894,9 +894,31 @@ function bind() {
   }));
 }
 
+function openPhotoChooser(preserveDraft = false) {
+  sheet(`<div class="stack" style="gap:6px"><h2 style="font-size:20px">Add a photo</h2><span class="muted small">A photo helps Mpulse identify the issue and route it to the right department.</span></div>
+    <div class="stack" style="gap:10px;margin-top:16px">
+      <button class="btn primary big" data-photo-choice="camera">📷 Take a photo</button>
+      <button class="btn ghost big" data-photo-choice="upload">▣ Upload from device</button>
+    </div>`);
+  $('#sheet').querySelectorAll('[data-photo-choice]').forEach((b) => b.addEventListener('click', () => {
+    const choice = b.dataset.photoChoice;
+    closeSheet();
+    if (!preserveDraft || !state.draft) {
+      state.draft = { text: '', source: 'photo', type: 'other', building: null, autoBuilding: false, detail: '', severity: 'low', confident: false, photo: null };
+    } else {
+      state.draft.source = 'photo';
+      state.draft.photo = null;
+    }
+    go('review');
+    const input = $('#photo-input');
+    if (choice === 'camera') input.setAttribute('capture', 'environment'); else input.removeAttribute('capture');
+    input.click();
+  }));
+}
+
 document.querySelectorAll('.tabbar .tab').forEach((t) => t.addEventListener('click', () => {
   const v = t.dataset.go;
-  if (v === 'snap') { state.draft = { text: '', source: 'photo', type: 'other', building: null, autoBuilding: false, detail: '', severity: 'low', confident: false, photo: null }; $('#photo-input').click(); go('review'); return; }
+  if (v === 'snap') { openPhotoChooser(); return; }
   go(v);
 }));
 

@@ -1,0 +1,14 @@
+{
+  "name": "EAiSER Campus",
+  "short_name": "EAiSER",
+  "description": "Type it, say it, or snap it. Campus issues routed to the right SJSU department.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F4F6F9",
+  "theme_color": "#0055A2",
+  "icons": [{ "src": "assets/sjsu-seal.png", "sizes": "512x512", "type": "image/png" }],
+  "shortcuts": [
+    { "name": "Assist mode", "short_name": "Assist", "description": "Voice-first, high contrast", "url": "./index.html#assist" },
+    { "name": "Snap a photo", "short_name": "Snap", "url": "./index.html#snap" }
+  ]
+}

@@ -12,6 +12,7 @@ const DEPARTMENTS = {
 // issue type -> department, severity, label, keywords. coDept = also notified (accessibility-blocking issues).
 const ISSUE_TYPES = [
   { id: 'elevator', label: 'Elevator',   dept: 'fdo',     coDept: 'access', severity: 'high',   kw: ['elevator', 'lift'] },
+  { id: 'access',   label: 'Access / Entry', dept: 'housing', coDept: 'access', severity: 'medium', kw: ['access card', 'key card', 'card reader', 'residence hall entry', 'residence-hall entry', 'door access'] },
   { id: 'door',     label: 'Door',       dept: 'fdo',     coDept: 'access', severity: 'medium', kw: ['door', 'automatic door', 'handle', 'lock'] },
   { id: 'ramp',     label: 'Ramp / Path', dept: 'fdo',    coDept: 'access', severity: 'high',   kw: ['ramp', 'wheelchair', 'curb', 'sidewalk', 'crack', 'trip', 'stairs', 'handrail', 'accessible'] },
   { id: 'outlet',   label: 'Outlet',     dept: 'fdo',     severity: 'medium', kw: ['outlet', 'socket', 'plug', 'charger', 'power'] },
@@ -20,9 +21,13 @@ const ISSUE_TYPES = [
   { id: 'plumbing', label: 'Plumbing',   dept: 'fdo',     severity: 'medium', kw: ['faucet', 'sink', 'leak', 'flood', 'toilet', 'water', 'shower', 'fountain'] },
   { id: 'trash',    label: 'Trash',      dept: 'fdo',     severity: 'low',    kw: ['trash', 'garbage', 'overflow', 'bin', 'recycling'] },
   { id: 'wifi',     label: 'Wi‑Fi',      dept: 'it',      severity: 'medium', kw: ['wifi', 'wi-fi', 'wi‑fi', 'internet', 'eduroam', 'network', 'connection'] },
-  { id: 'printer',  label: 'Printer',    dept: 'it',      severity: 'medium', kw: ['printer', 'print', 'toner', 'ink'] },
+  { id: 'printer',  label: 'Printer / Copier', dept: 'it', severity: 'medium', kw: ['printer', 'print', 'toner', 'ink', 'copier', 'scanner'] },
+  { id: 'classroom',label: 'Classroom equipment', dept: 'it', severity: 'medium', kw: ['projector', 'monitor', 'classroom monitor', 'classroom tv', 'television', 'whiteboard', 'marker tray', 'smart board', 'classroom equipment'] },
   { id: 'website',  label: 'Website',    dept: 'it',      severity: 'medium', kw: ['website', 'site', 'canvas', 'portal', 'login', 'page', 'booking'] },
-  { id: 'safety',   label: 'Safety',     dept: 'upd',     severity: 'high',   kw: ['scooter', 'bike', 'unsafe', 'safety', 'hit', 'accident', 'harass', 'suspicious', 'emergency phone'] },
+  { id: 'safety',   label: 'Safety',     dept: 'upd',     severity: 'high',   kw: ['scooter', 'bike', 'unsafe', 'safety', 'hit', 'accident', 'harass', 'suspicious'] },
+  { id: 'emergency',label: 'Emergency phone', dept: 'upd', severity: 'high', kw: ['emergency phone', 'blue light phone', 'call box'] },
+  { id: 'odor',     label: 'Unusual odor', dept: 'fdo', severity: 'medium', kw: ['unusual odor', 'bad odor', 'odor', 'smell'] },
+  { id: 'vending',  label: 'Vending machine', dept: 'fdo', severity: 'low', kw: ['vending machine', 'vending'] },
   { id: 'dorm',     label: 'Dorm',       dept: 'housing', severity: 'medium', kw: ['dorm', 'cvb', 'campus village', 'roommate', 'laundry', 'hot water'] },
   { id: 'other',    label: 'Other',      dept: 'fdo',     severity: 'low',    kw: [] },
 ];

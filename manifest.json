@@ -1,6 +1,6 @@
 {
-  "name": "EAiSER Campus",
-  "short_name": "EAiSER",
+  "name": "Mpulse Campus",
+  "short_name": "Mpulse",
   "description": "Type it, say it, or snap it. Campus issues routed to the right SJSU department.",
   "start_url": "./index.html",
   "display": "standalone",
