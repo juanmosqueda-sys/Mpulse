@@ -271,7 +271,7 @@ function Home() {
   </form>
   <button class="voice" id="voice-btn" aria-label="Hold to talk">
     <span class="mic">${ICONS.mic}</span>
-    <span class="grow"><div class="t">Hold to talk</div><div class="s">Say what's wrong and where. We transcribe and route it.</div></span>
+    <span class="grow"><div class="t">${matchMedia('(pointer: coarse)').matches ? 'Tap to talk' : 'Hold to talk'}</div><div class="s">Say what's wrong and where. We transcribe and route it.</div></span>
     <span class="wave" aria-hidden="true"><span style="height:10px"></span><span style="height:20px"></span><span style="height:14px"></span><span style="height:26px"></span><span style="height:16px"></span><span style="height:8px"></span></span>
   </button>
   <div class="row between" style="margin-top:6px">
@@ -290,7 +290,7 @@ function AssistHome(alertsHtml, live) {
   ${alertsHtml}
   <button class="voice assist-big" id="voice-btn" aria-label="Hold to talk">
     <span class="mic">${ICONS.mic}</span>
-    <span class="grow"><div class="t">Hold to talk</div><div class="s">"Report this problem" · "Alert students about this" · "Suggest an improvement" · "What am I seeing?"</div></span>
+    <span class="grow"><div class="t">${matchMedia('(pointer: coarse)').matches ? 'Tap to talk' : 'Hold to talk'}</div><div class="s">"Report this problem" · "Alert students about this" · "Suggest an improvement" · "What am I seeing?"</div></span>
   </button>
   <div class="assist-grid">
     <button class="assist-btn" data-act="see" aria-label="What am I seeing? Opens the camera and describes it">${ICONS.map}<span>What am I seeing?</span></button>
@@ -781,8 +781,9 @@ async function ensureMic() {
 }
 function voiceStart(btn) {
   btn.classList.add('listening');
-  $('.t', btn).textContent = 'Listening…';
-  $('.s', btn).textContent = SR ? 'Release when you\'re done' : 'Release to send';
+  const TOUCH = matchMedia('(pointer: coarse)').matches;
+  $('.t', btn).textContent = TOUCH ? 'Listening… tap to stop' : 'Listening…';
+  $('.s', btn).textContent = SR ? (TOUCH ? 'Speak, then tap again' : 'Release when you\'re done') : 'Release to send';
   holdTimer = Date.now();
   rec.finalText = ''; rec.interim = ''; rec.active = false; rec.failed = false; rec.err = null;
   if (!SR) return;
@@ -803,15 +804,17 @@ function voiceStart(btn) {
     } catch (e) { rec.failed = true; rec.err = String(e); }
   };
   // Start recognition inside the gesture; ask for the mic explicitly the first time so iOS shows its prompt.
-  if (micGranted) startSR();
-  else ensureMic().then((ok) => { if (ok && btn.classList.contains('listening')) startSR(); });
+  if (micGranted) { startSR(); return; }
+  // On iOS the permission request and recognition start both have to happen inside the tap.
+  startSR();
+  ensureMic().then((ok) => { if (!ok) { try { rec.obj && rec.obj.abort(); } catch (e) { /* ignore */ } } });
 }
 function voiceEnd(btn) {
   if (!btn.classList.contains('listening')) return;
   btn.classList.remove('listening');
   const held = (Date.now() - holdTimer) / 1000;
-  $('.t', btn).textContent = 'Hold to talk';
-  if (held < 0.4) { $('.s', btn).textContent = "Say what's wrong and where. We transcribe and route it."; try { rec.obj && rec.obj.abort(); } catch (e) { /* ignore */ } toast('Hold the button while you talk'); return; }
+  $('.t', btn).textContent = matchMedia('(pointer: coarse)').matches ? 'Tap to talk' : 'Hold to talk';
+  if (held < 0.4 && !matchMedia('(pointer: coarse)').matches) { $('.s', btn).textContent = "Say what's wrong and where. We transcribe and route it."; try { rec.obj && rec.obj.abort(); } catch (e) { /* ignore */ } toast('Hold the button while you talk'); return; }
   if (SR && rec.obj && rec.active && !rec.failed) {
     $('.s', btn).textContent = 'Transcribing…';
     rec.pendingFinish = true;
@@ -883,14 +886,20 @@ function bind() {
 
   const v = $('#voice-btn');
   if (v) {
-    const start = (e) => { e.preventDefault(); voiceStart(v); };
-    const end = (e) => { e.preventDefault(); voiceEnd(v); };
+    const TOUCH = matchMedia('(pointer: coarse)').matches;
     v.addEventListener('contextmenu', (e) => e.preventDefault());
-    v.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
-    v.addEventListener('pointerdown', start);
-    v.addEventListener('pointerup', end);
-    v.addEventListener('pointerleave', end);
-    v.addEventListener('pointercancel', end);
+    if (TOUCH) {
+      // Phones: tap to start, tap to stop. iOS only treats a tap (release) as a user gesture, so the mic must open here.
+      v.addEventListener('click', (e) => { e.preventDefault(); if (v.classList.contains('listening')) voiceEnd(v); else voiceStart(v); });
+    } else {
+      v.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+      const start = (e) => { e.preventDefault(); voiceStart(v); };
+      const end = (e) => { e.preventDefault(); voiceEnd(v); };
+      v.addEventListener('pointerdown', start);
+      v.addEventListener('pointerup', end);
+      v.addEventListener('pointerleave', end);
+      v.addEventListener('pointercancel', end);
+    }
     v.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!v.classList.contains('listening')) voiceStart(v); } });
     v.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); voiceEnd(v); } });
   }
