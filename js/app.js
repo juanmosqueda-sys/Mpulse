@@ -310,6 +310,8 @@ function clusterTitle(c) {
 
 function Review() {
   const d = state.draft;
+  // A draft started from the camera has no text yet; give it the default triage fields until a description arrives.
+  if (!d.category) Object.assign(d, { category: 'fix', trust: 'ok', reasons: [], emergency: false });
   const t = typeById(d.type), b = d.building ? bldgById(d.building) : null, dept = deptById(t.dept);
   const cluster = d.building ? findCluster(d.type, d.building) : null;
   const sev = d.severity;
