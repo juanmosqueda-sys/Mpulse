@@ -46,7 +46,7 @@ const BUILDINGS = [
   { id: 'cva',  name: 'Campus Village A',          abbr: 'CVA', lat: 37.335462, lng: -121.878263, x: 72, y: 72, w: 20, h: 18, kw: ['campus village a', 'cva', 'campus village'] },
   { id: 'hgh',  name: 'Hugh Gillis Hall',           abbr: 'HGH', lat: 37.336064, lng: -121.884561, x: 22, y: 20, w: 10, h: 8, kw: ['hugh gillis', 'hgh'] },
   { id: 'yuh',  name: 'Yoshihiro Uchida Hall',      abbr: 'YUH', lat: 37.333807, lng: -121.883971, x: 10, y: 62, w: 12, h: 8, kw: ['uchida', 'yuh'] },
-  { id: 'bbc',  name: 'Boccardo Business Complex',  abbr: 'BBC', lat: 37.336442, lng: -121.878869, x: 76, y: 30, w: 14, h: 10, kw: ['boccardo', 'bbc', 'business'] },
+  { id: 'bbc',  name: 'Boccardo Business Complex',  abbr: 'BBC', lat: 37.336583, lng: -121.878771, x: 76, y: 30, w: 14, h: 10, kw: ['boccardo', 'bbc', 'business'] },
   { id: 'its',  name: 'Interdisciplinary Sciences', abbr: 'ISB', lat: 37.333093, lng: -121.882841, x: 24, y: 64, w: 10, h: 8, kw: ['interdisciplinary', 'isb'] },
   { id: 'swc',  name: 'Student Wellness Center',    abbr: 'SWC', lat: 37.334711, lng: -121.881280, x: 60, y: 44, w: 10, h: 8, kw: ['wellness', 'health center', 'swc', 'counseling'] },
   { id: 'ec',   name: 'Event Center',               abbr: 'EC',  lat: 37.335311, lng: -121.880044, x: 60, y: 50, w: 12, h: 8, kw: ['event center'] },
