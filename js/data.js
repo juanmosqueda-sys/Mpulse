@@ -33,7 +33,7 @@ const CAMPUS_CENTER = { lat: 37.3352, lng: -121.8811 };
 const BUILDINGS = [
   { id: 'mlk',  name: 'MLK Library',               abbr: 'MLK', lat: 37.335431, lng: -121.884701, x: 10, y: 12, w: 16, h: 14, kw: ['mlk', 'library', 'king library'] },
   { id: 'dmh',  name: 'Dudley Moorhead Hall (DMH/IRC)', abbr: 'DMH', lat: 37.336355, lng: -121.883938, x: 10, y: 32, w: 14, h: 10, kw: ['dudley', 'dmh', 'moorhead', 'irc', 'instructional resource'] },
-  { id: 'cb2',  name: 'Clark Hall (CB2)',          abbr: 'CL',  lat: 37.335915, lng: -121.882547, x: 12, y: 50, w: 13, h: 12, kw: ['clark', 'cb2', 'cb 2'] },
+  { id: 'cb2',  name: 'Clark Hall (CB2)',          abbr: 'CL',  lat: 37.336176, lng: -121.882468, x: 12, y: 50, w: 13, h: 12, kw: ['clark', 'cb2', 'cb 2'] },
   { id: 'dh',   name: 'Duncan Hall',               abbr: 'DH',  lat: 37.332572, lng: -121.882062, x: 12, y: 74, w: 16, h: 12, kw: ['duncan'] },
   { id: 'sci',  name: 'Science Building (Old)',    abbr: 'SCI', lat: 37.334956, lng: -121.884954, x: 30, y: 36, w: 12, h: 10, kw: ['science building', 'science '] },
   { id: 'sh',   name: 'Sweeney Hall',              abbr: 'SH',  lat: 37.333766, lng: -121.881048, x: 32, y: 58, w: 12, h: 10, kw: ['sweeney'] },
