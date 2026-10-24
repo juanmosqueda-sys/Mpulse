@@ -48,7 +48,7 @@ const BUILDINGS = [
   { id: 'yuh',  name: 'Yoshihiro Uchida Hall',      abbr: 'YUH', lat: 37.333807, lng: -121.883971, x: 10, y: 62, w: 12, h: 8, kw: ['uchida', 'yuh'] },
   { id: 'bbc',  name: 'Boccardo Business Complex',  abbr: 'BBC', lat: 37.336442, lng: -121.878869, x: 76, y: 30, w: 14, h: 10, kw: ['boccardo', 'bbc', 'business'] },
   { id: 'its',  name: 'Interdisciplinary Sciences', abbr: 'ISB', lat: 37.333093, lng: -121.882841, x: 24, y: 64, w: 10, h: 8, kw: ['interdisciplinary', 'isb'] },
-  { id: 'hb',   name: 'Health Building',            abbr: 'HB',  lat: 37.335820, lng: -121.879134, x: 70, y: 44, w: 10, h: 8, kw: ['health building', 'health center'] },
+  { id: 'swc',  name: 'Student Wellness Center',    abbr: 'SWC', lat: 37.334711, lng: -121.881280, x: 60, y: 44, w: 10, h: 8, kw: ['wellness', 'health center', 'swc', 'counseling'] },
   { id: 'ec',   name: 'Event Center',               abbr: 'EC',  lat: 37.335219, lng: -121.880100, x: 60, y: 50, w: 12, h: 8, kw: ['event center'] },
   { id: 'tower',name: 'Tower Hall',                 abbr: 'TH',  lat: 37.335294, lng: -121.883469, x: 20, y: 40, w: 8, h: 8, kw: ['tower hall', 'tower'] },
   { id: 'admin',name: 'Administration Building',   abbr: 'ADM', lat: 37.336665, lng: -121.882837, x: 26, y: 28, w: 10, h: 8, kw: ['admin', 'administration', 'registrar', 'bursar', 'financial aid'] },
