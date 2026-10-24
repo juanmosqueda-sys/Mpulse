@@ -114,9 +114,9 @@ function topicFor(text) {
 }
 
 const CATEGORY = {
-  fix:        { label: 'Broken — needs fixing',   short: 'Fix',        tone: 'blue',  what: 'Creates a work order and sends it to the right department.' },
-  alert:      { label: 'Alert staff and students', short: 'Alert',      tone: 'red',   what: 'Grouped with matching reports. A staff member verifies it before anyone is notified.' },
-  suggestion: { label: 'Suggestion or feedback',   short: 'Suggestion', tone: 'gold',  what: `Posted to Community. Reaches staff once it has ${VOTE_THRESHOLD} votes.` },
+  fix:        { label: 'Work order',               short: 'Work order', tone: 'blue',  what: 'Sent straight to the department that fixes it.' },
+  alert:      { label: 'Campus alert',             short: 'Alert',      tone: 'red',   what: 'Grouped with matching reports. A staff member verifies it before students are notified.' },
+  suggestion: { label: 'Suggestion',               short: 'Suggestion', tone: 'gold',  what: `Posted to Community. Reaches staff once it has ${VOTE_THRESHOLD} votes.` },
 };
 
 function findCluster(type, building) {
@@ -200,7 +200,7 @@ function describeDraft() {
   const d = state.draft; if (!d) return '';
   const t = typeById(d.type), b = d.building ? bldgById(d.building) : null, dept = deptById(t.dept);
   const cluster = d.building ? findCluster(d.type, d.building) : null;
-  return `Review. Issue: ${t.label}. Location: ${b ? b.name : 'not set yet'}${d.detail ? ', ' + d.detail : ''}. Severity ${d.severity}. ${cluster ? cluster.count + ' other students reported this. ' : ''}Routes to ${dept.name}${t.coDept ? ', and ' + deptById(t.coDept).name : ''}. Submit button is at the bottom.`;
+  return `Review. The AI identified this as ${d.confident ? t.label : 'unclear, it needs one more detail'}, ${CATEGORY[d.category || 'fix'].label}, going to ${dept.name}${t.coDept ? ' and ' + deptById(t.coDept).name : ''}. Location: ${b ? b.name : 'not set yet'}${d.detail ? ', ' + d.detail : ''}. Severity ${d.severity}. ${cluster ? cluster.count + ' other students reported this. ' : ''}Submit button is at the bottom.`;
 }
 const toneFor = (status) => ({ submitted: 'blue', routed: 'blue', pending: 'gold', acknowledged: 'gold', assigned: 'gold', in_progress: 'gold', resolved: 'green', verified: 'green', announced: 'red', review: 'neutral', dismissed: 'neutral' }[status] || 'neutral');
 
@@ -317,7 +317,7 @@ function Review() {
   const cluster = d.building ? findCluster(d.type, d.building) : null;
   const sev = d.severity;
   const typeBlock = d.confident
-    ? `<div class="row between"><div><div class="eyebrow">Issue type</div><div style="font-size:14px;font-weight:600">${esc(t.label)}</div></div><span class="pill blue">AI</span></div>`
+    ? ''
     : `<div class="stack" style="gap:6px"><div class="row between"><div><div class="eyebrow">Issue type</div><div style="font-size:14px;font-weight:600;color:var(--gold-text)">Not sure yet</div></div><span class="pill gold">Needs detail</span></div>
        <label class="eyebrow" for="more-detail">Tell the AI more</label>
        <input class="field" id="more-detail" placeholder="e.g. the elevator door won't close" value="">
@@ -331,9 +331,13 @@ function Review() {
   const srcLabel = ({ text: 'Typed', voice: d.sample ? 'Sample transcript (mic unavailable)' : 'Voice transcript', photo: 'Photo' })[d.source];
   const cat = CATEGORY[d.category];
   const hintNote = d.hint && d.hint !== d.category ? `<span class="muted small">You said "${esc(CATEGORY[d.hint].short.toLowerCase())}". The AI filed it as ${esc(cat.short.toLowerCase())} instead, based on what you described.</span>` : '';
+  const headline = d.category === 'fix'
+    ? (d.confident ? `${t.label} → ${dept.short}${t.coDept ? ' + ' + deptById(t.coDept).short : ''}` : 'Needs one more detail')
+    : d.category === 'alert' ? `${d.emergency ? 'Emergency' : t.label !== 'Other' ? t.label + ' hazard' : 'Hazard'} → ${d.emergency ? 'University Police' : 'staff verification'}`
+    : `Suggestion → ${deptById(topicFor(d.text || '').dept).short}`;
   const triage = `<div class="card pad stack triage ${cat.tone}" style="gap:6px">
       <div class="row between"><span class="eyebrow">AI decided</span><span class="pill ${cat.tone}">${esc(cat.short)}</span></div>
-      <b style="font-size:16px">${esc(cat.label)}</b>
+      <b style="font-size:16px">${esc(headline)}</b>
       <span class="muted" style="font-size:13px">${esc(cat.what)}</span>
       ${hintNote}
       ${d.emergency ? `<span class="row" style="gap:6px;font-size:13px;font-weight:700;color:var(--red)">${ICONS.bell} Possible emergency. University Police notified on submit. <button class="btn ghost" style="height:28px;padding:0 10px;font-size:12px" data-act="emergency">Numbers</button></span>` : ''}
@@ -354,8 +358,7 @@ function Review() {
   <div class="row" style="gap:8px"><span style="color:var(--blue)">${ICONS.spark}</span><span style="font-size:13px;font-weight:600;color:var(--blue)">${d.confident ? 'AI identified the issue and department. You can only correct the location.' : 'The AI needs a bit more to identify this.'}</span></div>
   ${triage}
   <div class="card pad stack">
-    ${typeBlock}
-    <div class="hr"></div>
+    ${typeBlock}${typeBlock ? '<div class="hr"></div>' : ''}
     <div class="stack" style="gap:8px">
       <div class="row between"><span class="eyebrow">Location</span>${d.building && d.autoBuilding ? `<span class="pill green">${d.source === 'photo' ? 'From photo GPS' : 'Matched from text'}</span>` : d.building ? '' : '<span class="pill gold">Tap a building</span>'}</div>
       ${mapHost({ selected: d.building, pins: clusterPins(), interactive: true, height: 230 })}
