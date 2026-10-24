@@ -4,5 +4,6 @@ const CONFIG = {
   GOOGLE_MAPS_KEY: (typeof CONFIG_LOCAL !== 'undefined' && CONFIG_LOCAL.GOOGLE_MAPS_KEY) || 'AIzaSyDQZ0VcKSeLPiEuI-Mmyhkc50CB0wCXlvg',
   MAP_PROVIDER: 'auto',   // 'auto' | 'google' | 'osm' | 'schematic'
   AI: true,               // Gemini reads photos and refines text triage. Key is entered on the device (hold the seal).
+  AI_PROXY: 'https://mpulse-ai.vercel.app/api/triage',   // server that holds the Gemini key (api/triage.js deployed on Vercel). '' = call Gemini directly with the key below
   GEMINI_KEY: '',         // leave empty in the repo; a local dev key can go in js/config.local.js (gitignored)
 };

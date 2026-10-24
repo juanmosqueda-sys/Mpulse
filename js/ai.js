@@ -7,7 +7,13 @@ const AI = (() => {
   // The Gemini key is never committed. It is entered once on the device (hold the seal → Demo options) and kept in localStorage.
   const key = () => { try { return localStorage.getItem('mpulse-gemini-key') || (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } catch (e) { return (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } };
   const setKey = (k) => { try { if (k) localStorage.setItem('mpulse-gemini-key', k.trim()); else localStorage.removeItem('mpulse-gemini-key'); } catch (e) { /* ignore */ } };
-  const enabled = () => (typeof CONFIG !== 'undefined' && CONFIG.AI === true) && !!key();
+  // Same-origin /api/triage when the whole app is served from Vercel; otherwise the configured proxy; a device key always wins.
+  const proxy = () => {
+    if (key()) return '';
+    if (typeof location !== 'undefined' && /\.vercel\.app$/.test(location.hostname)) return '/api/triage';
+    return (typeof CONFIG !== 'undefined' && CONFIG.AI_PROXY) || '';
+  };
+  const enabled = () => (typeof CONFIG !== 'undefined' && CONFIG.AI === true) && (!!key() || !!proxy());
 
   function prompt() {
     const types = ISSUE_TYPES.map((t) => `${t.id}: ${t.label}`).join('; ');
@@ -44,10 +50,13 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
 
   async function call(model, parts, ctrl) {
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-        method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key() },
-        body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json' } }),
-      });
+      const body = { contents: [{ role: 'user', parts }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json' } };
+      const p = proxy();
+      const res = p
+        ? await fetch(p, { method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model, body }) })
+        : await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+            method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key() }, body: JSON.stringify(body),
+          });
       if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + (await res.text()).slice(0, 200));
       const data = await res.json();
       const txt = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
@@ -101,5 +110,5 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
     return null;
   }
 
-  return { triage, enabled, setKey, hasKey: () => !!key(), lastError: null };
+  return { triage, enabled, setKey, hasKey: () => !!key() || !!proxy(), lastError: null };
 })();
