@@ -3,7 +3,7 @@
 
 const AI = (() => {
   const MODELS = ['gemini-3-flash-preview', 'gemini-3.1-flash-lite', 'gemini-3.8-flash'];
-  const TIMEOUT_MS = 15000;
+  const BUDGET_MS = 7000;   // hard ceiling for the whole triage, upload included
   // The Gemini key is never committed. It is entered once on the device (hold the seal → Demo options) and kept in localStorage.
   const key = () => { try { return localStorage.getItem('mpulse-gemini-key') || (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } catch (e) { return (typeof CONFIG !== 'undefined' && CONFIG.GEMINI_KEY) || ''; } };
   const setKey = (k) => { try { if (k) localStorage.setItem('mpulse-gemini-key', k.trim()); else localStorage.removeItem('mpulse-gemini-key'); } catch (e) { /* ignore */ } };
@@ -26,9 +26,23 @@ Given the report (text, and a photo if attached), decide — the reporter never 
 Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`;
   }
 
-  async function call(model, parts) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+  // Shrink a photo before upload: ~1024px JPEG is plenty for triage and cuts a 5 MB iPhone photo to ~150 KB.
+  function shrink(dataUrl, max = 1024) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, max / Math.max(img.width, img.height));
+        if (k === 1 && dataUrl.length < 400000) return resolve(dataUrl);
+        const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
+  async function call(model, parts, ctrl) {
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key() },
@@ -39,7 +53,7 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
       const txt = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
       const json = txt.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
       return JSON.parse(json);
-    } finally { clearTimeout(timer); }
+    } catch (e) { if (e.name !== 'AbortError') console.warn('AI triage failed on', model, e.message || e); throw e; }
   }
 
   // text: string; photo: data URL or null. Returns a normalized decision or null.
@@ -47,33 +61,42 @@ Respond with ONLY a JSON object with exactly those keys. No prose, no markdown.`
     if (!enabled()) return null;
     const parts = [{ text: prompt() + '\n\nREPORT TEXT: ' + (text && text.trim() ? text.trim() : '(none, photo only)') }];
     if (photo && /^data:image\//.test(photo)) {
-      const m = photo.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+      const small = await shrink(photo);
+      const m = small.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
       if (m) parts.push({ inlineData: { mimeType: m[1], data: m[2] } });
     }
+    const ctrl = new AbortController();
+    const deadline = setTimeout(() => ctrl.abort(), BUDGET_MS);
+    const normalize = (r) => {
+      const typeOk = ISSUE_TYPES.some((t) => t.id === r.type);
+      const bldOk = r.building && BUILDINGS.some((b) => b.id === r.building);
+      return {
+        category: ['fix', 'alert', 'suggestion'].includes(r.category) ? r.category : 'fix',
+        type: typeOk ? r.type : 'other',
+        building: bldOk ? r.building : null,
+        detail: typeof r.detail === 'string' ? r.detail.slice(0, 60) : '',
+        severity: ['low', 'medium', 'high', 'critical'].includes(r.severity) ? r.severity : 'medium',
+        emergency: !!r.emergency,
+        genuine: r.genuine !== false,
+        description: typeof r.description === 'string' ? r.description.slice(0, 300) : '',
+        confidence: typeof r.confidence === 'number' ? Math.max(0, Math.min(1, r.confidence)) : 0.5,
+        model: r.__model,
+      };
+    };
     let lastErr = null;
-    // Each model gets two tries; a 503 ("high demand") usually clears within a second or two.
-    const attempts = MODELS.flatMap((m) => [m, m]);
-    for (let i = 0; i < attempts.length; i++) {
-      const model = attempts[i];
-      if (i % 2 === 1) await new Promise((r) => setTimeout(r, 1500));
-      try {
-        const r = await call(model, parts);
-        const typeOk = ISSUE_TYPES.some((t) => t.id === r.type);
-        const bldOk = r.building && BUILDINGS.some((b) => b.id === r.building);
-        return {
-          category: ['fix', 'alert', 'suggestion'].includes(r.category) ? r.category : 'fix',
-          type: typeOk ? r.type : 'other',
-          building: bldOk ? r.building : null,
-          detail: typeof r.detail === 'string' ? r.detail.slice(0, 60) : '',
-          severity: ['low', 'medium', 'high', 'critical'].includes(r.severity) ? r.severity : 'medium',
-          emergency: !!r.emergency,
-          genuine: r.genuine !== false,
-          description: typeof r.description === 'string' ? r.description.slice(0, 300) : '',
-          confidence: typeof r.confidence === 'number' ? Math.max(0, Math.min(1, r.confidence)) : 0.5,
-          model,
-        };
-      } catch (e) { lastErr = e; console.warn('AI triage failed on', model, e.message || e); }
+    try {
+      // Race the two fastest models; whichever answers first wins. A 503 on one doesn't cost any time.
+      const racers = MODELS.slice(0, 2).map((m) => call(m, parts, ctrl).then((r) => ({ ...r, __model: m })));
+      const r = await Promise.any(racers);
+      clearTimeout(deadline); ctrl.abort();
+      return normalize(r);
+    } catch (e) { lastErr = e.errors ? e.errors[e.errors.length - 1] : e; }
+    // Both failed quickly (e.g. 503s): one last try on the third model inside whatever budget remains.
+    if (!ctrl.signal.aborted) {
+      try { const r = await call(MODELS[2], parts, ctrl); clearTimeout(deadline); return normalize({ ...r, __model: MODELS[2] }); }
+      catch (e) { lastErr = e; }
     }
+    clearTimeout(deadline);
     AI.lastError = lastErr ? (lastErr.message || String(lastErr)) : null;
     return null;
   }
